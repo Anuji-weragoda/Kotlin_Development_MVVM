@@ -3,4 +3,13 @@
     <string name="tagline">Secure &amp; Reliable</string>
     <string name="logo_letter">S</string>
     <string name="app_logo">Auth App Logo</string>
+    <string name="app_title">Welcome Back</string>
+    <string name="login_subtitle">Login to your account</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="login_button">Login</string>
+    <string name="signup_text">Sign Up</string>
+    <string name="signup_message">Don\'t have an account? </string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+
 </resources>

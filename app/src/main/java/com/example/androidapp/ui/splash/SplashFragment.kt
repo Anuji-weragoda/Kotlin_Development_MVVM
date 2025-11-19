@@ -8,37 +8,51 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.example.androidapp.R
+import com.example.androidapp.databinding.FragmentSplashBinding
+import androidx.navigation.fragment.findNavController
+
 
 class SplashFragment : Fragment() {
 
+    private var _binding: FragmentSplashBinding? = null
+    private val binding get() = _binding!!
+
+
     private val handler = Handler(Looper.getMainLooper())
+
+
+    private val navigateToLogin = Runnable {
+
+        if (isAdded) {
+            findNavController().navigate(R.id.action_splashFragment_to_loginFragment)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // Inflate layout normally
-        return inflater.inflate(R.layout.fragment_splash, container, false)
+        _binding = FragmentSplashBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Simple fade-in animation
-        view.alpha = 0f
-        view.animate().alpha(1f).setDuration(1000).start()
+        // Optional: Add fade-in animation
+        binding.root.alpha = 0f
+        binding.root.animate()
+            .alpha(1f)
+            .setDuration(1000)
+            .start()
 
-        // Delay (2.5 seconds) before next action
-        handler.postDelayed({
-            // Here you can navigate later
-            // For now just do nothing or show a log
-        }, 2500)
+        handler.postDelayed(navigateToLogin, 3500)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        handler.removeCallbacksAndMessages(null)
+        handler.removeCallbacks(navigateToLogin)
+        _binding = null
     }
-
 }
