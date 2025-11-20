@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt")
+    id("kotlin-parcelize")
 }
 
 android {
@@ -17,9 +19,18 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // AWS Cognito Configuration
+        buildConfigField("String", "COGNITO_USER_POOL_ID", "eu-north-1_eOvAx8nlu")
+        buildConfigField("String", "COGNITO_CLIENT_ID", "7f8b8tgho76tcl9dmirq2tomar")
+        buildConfigField("String", "COGNITO_REGION", "eu-north-1")
+
+        // Backend API Configuration
+        buildConfigField("String", "BASE_URL", "http://localhost:8081")
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
 
@@ -58,4 +69,19 @@ dependencies {
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.gson)
+    implementation(libs.aws.auth.cognito)
+    implementation(libs.aws.core)
+    implementation(libs.retrofit.gson)
+    implementation(libs.retrofit.scalars)
+    implementation(libs.okhttp.logging)
+    implementation(libs.datastore.preferences)
+    implementation(libs.security.crypto)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    kapt(libs.room.compiler)
+    implementation(libs.timber)
+    implementation(libs.coroutines.android)
 }
