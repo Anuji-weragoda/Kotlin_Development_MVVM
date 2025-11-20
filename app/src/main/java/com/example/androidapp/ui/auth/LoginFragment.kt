@@ -27,6 +27,7 @@ class LoginFragment : Fragment() {
         return binding.root
     }
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -42,10 +43,10 @@ class LoginFragment : Fragment() {
             viewModel.login(email, password)
         }
 
+        // Navigate to Signup screen
         binding.signupTextView.setOnClickListener {
             findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
         }
-
     }
 
 
@@ -62,6 +63,7 @@ class LoginFragment : Fragment() {
                     showLoading(false)
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
 
+                    findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
                 }
                 is LoginViewModel.LoginState.Error -> {
                     showLoading(false)
@@ -71,10 +73,12 @@ class LoginFragment : Fragment() {
         }
     }
 
+
     private fun showLoading(isLoading: Boolean) {
         binding.loginButton.isEnabled = !isLoading
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

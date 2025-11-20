@@ -25,7 +25,7 @@
         android:name="com.example.androidapp.ui.auth.LoginFragment"
         android:label="Login">
 
-        <!-- Action to navigate to Signup -->
+        <!-- Navigate to Signup -->
         <action
             android:id="@+id/action_loginFragment_to_signupFragment"
             app:destination="@id/signupFragment"
@@ -33,12 +33,41 @@
             app:exitAnim="@android:anim/slide_out_right"
             app:popEnterAnim="@android:anim/slide_in_left"
             app:popExitAnim="@android:anim/slide_out_right" />
+
+        <!-- Navigate to Home after successful login -->
+        <action
+            android:id="@+id/action_loginFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true"/>
     </fragment>
 
     <!-- Signup Fragment -->
     <fragment
         android:id="@+id/signupFragment"
         android:name="com.example.androidapp.ui.signup.SignupFragment"
-        android:label="Signup" />
+        android:label="Signup">
+
+        <!-- Navigate to Home after successful signup -->
+        <action
+            android:id="@+id/action_signupFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/loginFragment"
+            app:popUpToInclusive="true"/>
+    </fragment>
+
+    <!-- Home Fragment -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.example.androidapp.ui.home.HomeFragment"
+        android:label="Home">
+
+        <!-- Navigate back to Login on logout -->
+        <action
+            android:id="@+id/action_homeFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="true"/>
+    </fragment>
 
 </navigation>

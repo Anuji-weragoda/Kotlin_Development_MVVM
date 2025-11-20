@@ -16,6 +16,7 @@
     <string name="sign_up_subtitle">Sign up to get started</string>
     <string name="Full_name">Full Name</string>
     <string name="already_have_account">Already have an account?</string>
+    <string name="reset_password_title">Reset Password</string>
 
 
 </resources>

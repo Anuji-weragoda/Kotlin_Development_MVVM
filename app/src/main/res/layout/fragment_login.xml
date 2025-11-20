@@ -49,7 +49,7 @@
             android:hint="@string/email_hint"
             android:layout_marginTop="48dp"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:startIconDrawable="@android:drawable/ic_dialog_email"
+            app:startIconDrawable="@drawable/ic_email"
             app:startIconTint="@color/text_secondary"
             app:hintTextColor="@color/text_secondary"
             app:boxStrokeColor="@color/primary"
