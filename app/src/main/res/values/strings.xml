@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Auth App</string>
+    <string name="app_name">Staff MS</string>
     <string name="tagline">Secure &amp; Reliable</string>
     <string name="logo_letter">S</string>
     <string name="app_logo">Auth App Logo</string>
@@ -11,5 +11,11 @@
     <string name="signup_message">Don\'t have an account? </string>
     <string name="email_hint">Email</string>
     <string name="password_hint">Password</string>
+    <string name="confirm_password_hint">Confirm Password</string>
+    <string name="sign_up_title">Create Account</string>
+    <string name="sign_up_subtitle">Sign up to get started</string>
+    <string name="Full_name">Full Name</string>
+    <string name="already_have_account">Already have an account?</string>
+
 
 </resources>

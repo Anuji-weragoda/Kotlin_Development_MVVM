@@ -1,4 +1,4 @@
-package com.example.androidapp.ui.auth
+package com.example.androidapp.ui.signup
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,23 +7,21 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import com.example.androidapp.databinding.FragmentLoginBinding
-import com.example.androidapp.R
 import androidx.navigation.fragment.findNavController
+import com.example.androidapp.databinding.FragmentSignupBinding
 
-class LoginFragment : Fragment() {
-
-    private var _binding: FragmentLoginBinding? = null
+class SignupFragment : Fragment() {
+    private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: LoginViewModel by viewModels()
+    private val viewModel: SignupViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentLoginBinding.inflate(inflater, container, false)
+        _binding = FragmentSignupBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -35,35 +33,38 @@ class LoginFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
-
-        binding.loginButton.setOnClickListener {
+        // Signup button click
+        binding.signupButton.setOnClickListener {
+            val fullName = binding.fullNameEditText.text.toString()
             val email = binding.emailEditText.text.toString()
             val password = binding.passwordEditText.text.toString()
-            viewModel.login(email, password)
+            val confirmPassword = binding.confirmPasswordEditText.text.toString()
+
+            viewModel.signup(fullName, email, password, confirmPassword)
         }
 
-        binding.signupTextView.setOnClickListener {
-            findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
+        // Navigate back to Login
+        binding.loginTextView.setOnClickListener {
+            findNavController().navigateUp()
         }
-
     }
 
-
     private fun observeViewModel() {
-        viewModel.loginResult.observe(viewLifecycleOwner) { state ->
+        viewModel.signupResult.observe(viewLifecycleOwner) { state ->
             when (state) {
-                is LoginViewModel.LoginState.Idle -> {
+                is SignupViewModel.SignupState.Idle -> {
 
                 }
-                is LoginViewModel.LoginState.Loading -> {
+                is SignupViewModel.SignupState.Loading -> {
                     showLoading(true)
                 }
-                is LoginViewModel.LoginState.Success -> {
+                is SignupViewModel.SignupState.Success -> {
                     showLoading(false)
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
 
+                    findNavController().navigateUp()
                 }
-                is LoginViewModel.LoginState.Error -> {
+                is SignupViewModel.SignupState.Error -> {
                     showLoading(false)
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
@@ -72,7 +73,7 @@ class LoginFragment : Fragment() {
     }
 
     private fun showLoading(isLoading: Boolean) {
-        binding.loginButton.isEnabled = !isLoading
+        binding.signupButton.isEnabled = !isLoading
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
@@ -80,4 +81,5 @@ class LoginFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+
 }

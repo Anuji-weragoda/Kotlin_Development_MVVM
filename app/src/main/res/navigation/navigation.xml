@@ -4,11 +4,11 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/splashFragment">
 
+    <!-- Splash Fragment -->
     <fragment
         android:id="@+id/splashFragment"
         android:name="com.example.androidapp.ui.splash.SplashFragment"
         android:label="Splash">
-
 
         <action
             android:id="@+id/action_splashFragment_to_loginFragment"
@@ -19,12 +19,26 @@
             app:exitAnim="@android:anim/fade_out" />
     </fragment>
 
-
+    <!-- Login Fragment -->
     <fragment
         android:id="@+id/loginFragment"
         android:name="com.example.androidapp.ui.auth.LoginFragment"
         android:label="Login">
+
+        <!-- Action to navigate to Signup -->
+        <action
+            android:id="@+id/action_loginFragment_to_signupFragment"
+            app:destination="@id/signupFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"
+            app:popEnterAnim="@android:anim/slide_in_left"
+            app:popExitAnim="@android:anim/slide_out_right" />
     </fragment>
 
+    <!-- Signup Fragment -->
+    <fragment
+        android:id="@+id/signupFragment"
+        android:name="com.example.androidapp.ui.signup.SignupFragment"
+        android:label="Signup" />
 
 </navigation>
