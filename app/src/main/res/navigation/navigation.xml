@@ -22,7 +22,7 @@
     <!-- Login Fragment -->
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.example.androidapp.ui.auth.LoginFragment"
+        android:name="com.example.androidapp.ui.auth.login.LoginFragment"
         android:label="Login">
 
         <!-- Navigate to Signup -->
@@ -45,7 +45,7 @@
     <!-- Signup Fragment -->
     <fragment
         android:id="@+id/signupFragment"
-        android:name="com.example.androidapp.ui.signup.SignupFragment"
+        android:name="com.example.androidapp.ui.auth.signup.SignupFragment"
         android:label="Signup">
 
         <!-- Navigate to Home after successful signup -->

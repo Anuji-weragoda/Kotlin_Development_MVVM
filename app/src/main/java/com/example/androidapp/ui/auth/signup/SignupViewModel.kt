@@ -1,4 +1,4 @@
-package com.example.androidapp.ui.signup
+package com.example.androidapp.ui.auth.signup
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData

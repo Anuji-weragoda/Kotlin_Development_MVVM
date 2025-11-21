@@ -1,4 +1,4 @@
-package com.example.androidapp.ui.data.model
+package com.example.androidapp.data.model
 
 class User {
     val email: String = "test@gmail.com"
