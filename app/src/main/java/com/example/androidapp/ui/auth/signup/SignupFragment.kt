@@ -1,4 +1,4 @@
-package com.example.androidapp.ui.signup
+package com.example.androidapp.ui.auth.signup
 
 import android.os.Bundle
 import android.view.LayoutInflater

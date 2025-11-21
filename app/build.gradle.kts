@@ -21,13 +21,16 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // AWS Cognito Configuration
-        buildConfigField("String", "COGNITO_USER_POOL_ID", "eu-north-1_eOvAx8nlu")
-        buildConfigField("String", "COGNITO_CLIENT_ID", "7f8b8tgho76tcl9dmirq2tomar")
-        buildConfigField("String", "COGNITO_REGION", "eu-north-1")
+        buildConfigField("String", "COGNITO_USER_POOL_ID", "\"eu-north-1_eOvAx8nlu\"")
+        buildConfigField("String", "COGNITO_CLIENT_ID", "\"7f8b8tgho76tcl9dmirq2tomar\"")
+        buildConfigField("String", "COGNITO_REGION", "\"eu-north-1\"")
+
 
         // Backend API Configuration
-        buildConfigField("String", "BASE_URL", "http://localhost:8081")
+        buildConfigField ("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
     }
+
+
     buildFeatures {
         viewBinding = true
         buildConfig = true
@@ -46,6 +49,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlin {
         compilerOptions {
@@ -84,4 +88,6 @@ dependencies {
     kapt(libs.room.compiler)
     implementation(libs.timber)
     implementation(libs.coroutines.android)
+    coreLibraryDesugaring(libs.core.desugar)
+
 }

@@ -22,6 +22,8 @@ security-crypto = "1.1.0"
 room = "2.8.4"
 timber = "5.0.1"
 coroutines = "1.10.2"
+desugar = "2.1.5"
+
 
 
 [libraries]
@@ -54,6 +56,8 @@ room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+core-desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
+
 
 
 [plugins]
