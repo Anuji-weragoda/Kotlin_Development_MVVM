@@ -11,8 +11,6 @@ import androidx.navigation.fragment.findNavController
 import com.example.androidapp.AuthApplication
 import com.example.androidapp.databinding.FragmentVerifyEmailBinding
 import com.example.androidapp.ui.factory.ViewModelFactory
-import com.example.androidapp.ui.auth.signup.VerifyEmailFragmentArgs
-
 
 class VerifyEmailFragment : Fragment() {
 
@@ -21,10 +19,11 @@ class VerifyEmailFragment : Fragment() {
 
     private val viewModel: VerifyEmailViewModel by viewModels {
         val emailArg = VerifyEmailFragmentArgs.fromBundle(requireArguments()).email
-        ViewModelFactory((requireActivity().application as AuthApplication).authRepository, emailArg)
+        ViewModelFactory(
+            (requireActivity().application as AuthApplication).authRepository,
+            emailArg
+        )
     }
-
-    private lateinit var email: String
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -37,13 +36,11 @@ class VerifyEmailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Get email from arguments
-        email = arguments?.getString("email") ?: ""
-
         binding.verifyButton.setOnClickListener {
-            val code = binding.codeEditText.text.toString()
+            val code = binding.codeEditText.text.toString().trim()
+
             if (code.isNotEmpty()) {
-                viewModel.verifyCode(code) // Only pass code, as your ViewModel expects
+                viewModel.verifyCode(code)
             } else {
                 Toast.makeText(requireContext(), "Please enter the code", Toast.LENGTH_SHORT).show()
             }
@@ -53,16 +50,24 @@ class VerifyEmailFragment : Fragment() {
     }
 
     private fun observeViewModel() {
+
+        // Observe verification state
         viewModel.verifyState.observe(viewLifecycleOwner) { state ->
             when (state) {
                 is VerifyEmailViewModel.VerifyState.Loading -> {
                     binding.verifyButton.isEnabled = false
                 }
+
                 is VerifyEmailViewModel.VerifyState.Success -> {
                     binding.verifyButton.isEnabled = true
                     Toast.makeText(requireContext(), "Email verified!", Toast.LENGTH_SHORT).show()
-                    findNavController().navigateUp() // Go back to login page
+
+                    // Navigate directly to Home screen
+                    findNavController().navigate(
+                        VerifyEmailFragmentDirections.actionVerifyEmailFragmentToHomeFragment()
+                    )
                 }
+
                 is VerifyEmailViewModel.VerifyState.Error -> {
                     binding.verifyButton.isEnabled = true
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
