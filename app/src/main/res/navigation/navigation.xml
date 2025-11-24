@@ -69,10 +69,10 @@
         android:name="com.example.androidapp.ui.auth.signup.VerifyEmailFragment"
         android:label="Verify Email">
 
-        <!-- Navigate to Login after verification -->
+        <!-- Navigate to Home after verification -->
         <action
-            android:id="@+id/action_verifyEmailFragment_to_loginFragment"
-            app:destination="@id/loginFragment"
+            android:id="@+id/action_verifyEmailFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
             app:popUpTo="@id/signupFragment"
             app:popUpToInclusive="true"/>
 
