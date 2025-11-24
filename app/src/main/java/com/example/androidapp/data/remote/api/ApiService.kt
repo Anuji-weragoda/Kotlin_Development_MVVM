@@ -14,6 +14,13 @@ interface ApiService {
         @Body request: LoginRequest
     ): Response<AuthResponse>
 
+    @POST("auth/signup")
+   suspend fun signup(
+        @Body request:SignupRequest
+    ): Response<AuthResponse>
+
+    @POST("/auth/confirm")
+    suspend fun confirmSignup(@Body request: ConfirmSignupRequest): Response<Unit>
     // Refresh token
     @POST("auth/refresh")
     suspend fun refreshToken(

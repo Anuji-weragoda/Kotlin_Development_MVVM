@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
 
-// Extension property for DataStore
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
 
 class TokenManager(private val context: Context) {
@@ -23,7 +23,7 @@ class TokenManager(private val context: Context) {
         private val USER_FULLNAME_KEY = stringPreferencesKey("user_fullname")
     }
 
-    /** Save access and refresh tokens */
+
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
         try {
             context.dataStore.edit { preferences ->
@@ -37,7 +37,6 @@ class TokenManager(private val context: Context) {
         }
     }
 
-    /** Save user info including fullName */
     suspend fun saveUserInfo(userId: String, email: String, fullName: String) {
         try {
             context.dataStore.edit { preferences ->
@@ -52,17 +51,17 @@ class TokenManager(private val context: Context) {
         }
     }
 
-    /** Getters */
+
     fun getAccessToken(): Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN_KEY] }
     fun getRefreshToken(): Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN_KEY] }
     fun getUserId(): Flow<String?> = context.dataStore.data.map { it[USER_ID_KEY] }
     fun getUserEmail(): Flow<String?> = context.dataStore.data.map { it[USER_EMAIL_KEY] }
     fun getUserFullName(): Flow<String?> = context.dataStore.data.map { it[USER_FULLNAME_KEY] }
 
-    /** Check if user is logged in */
+
     fun isLoggedIn(): Flow<Boolean> = context.dataStore.data.map { !it[ACCESS_TOKEN_KEY].isNullOrEmpty() }
 
-    /** Clear all tokens and user info */
+
     suspend fun clearTokens() {
         try {
             context.dataStore.edit { it.clear() }
@@ -72,7 +71,7 @@ class TokenManager(private val context: Context) {
         }
     }
 
-    /** Clear only access and refresh tokens */
+
     suspend fun clearAuthTokens() {
         try {
             context.dataStore.edit {

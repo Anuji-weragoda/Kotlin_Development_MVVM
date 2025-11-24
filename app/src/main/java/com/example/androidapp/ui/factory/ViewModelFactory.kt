@@ -17,6 +17,10 @@ class ViewModelFactory(
                 LoginViewModel(authRepository) as T
             }
 
+            modelClass.isAssignableFrom(SignupViewModel::class.java) -> {
+                SignupViewModel(authRepository) as T
+            }
+
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
     }
