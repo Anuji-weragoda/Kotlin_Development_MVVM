@@ -23,6 +23,7 @@ room = "2.8.4"
 timber = "5.0.1"
 coroutines = "1.10.2"
 desugar = "2.1.5"
+nav = "2.9.6"
 
 
 
@@ -60,7 +61,9 @@ core-desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version
 
 
 
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+androidx-navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "nav" }
 

@@ -26,12 +26,15 @@ data class RefreshTokenRequest(
 
 // Auth response
 data class AuthResponse(
-    @SerializedName("accessToken") val accessToken: String,
-    @SerializedName("refreshToken") val refreshToken: String,
+    @SerializedName("accessToken") val accessToken: String? = null,
+    @SerializedName("refreshToken") val refreshToken: String? = null,
     @SerializedName("idToken") val idToken: String? = null,
-    @SerializedName("tokenType") val tokenType: String = "Bearer",
-    @SerializedName("expiresIn") val expiresIn: Long,
-    @SerializedName("userAttributes") val userAttributes: UserAttributes
+    @SerializedName("tokenType") val tokenType: String? = "Bearer",
+    @SerializedName("expiresIn") val expiresIn: Long? = null,
+    @SerializedName("userAttributes") val userAttributes: UserAttributes? = null,
+    @SerializedName("userSub") val userSub: String? = null,
+    @SerializedName("userConfirmed") val userConfirmed: Boolean? = null,
+    @SerializedName("message") val message: String? = null
 )
 
 // User attributes inside AuthResponse

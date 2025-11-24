@@ -30,14 +30,16 @@ class AuthRepository(private val tokenManager: TokenManager) {
             if (response.isSuccessful) {
                 val authData = response.body()
                 if (authData != null) {
-                    tokenManager.saveTokens(authData.accessToken, authData.refreshToken)
+                    tokenManager.saveTokens(
+                        authData.accessToken ?: "",
+                        authData.refreshToken ?: "")
                     tokenManager.saveUserInfo(
-                        authData.userAttributes.sub,
-                        authData.userAttributes.email,
+                        authData.userAttributes?.sub ?: "",
+                        authData.userAttributes?.email ?: "",
                         ""
                     )
                     emit(Resource.Success(authData))
-                    Timber.d("Login successful: ${authData.userAttributes.email}")
+                    Timber.d("Login successful: ${authData.userAttributes ?.email ?: ""}")
                 } else {
                     emit(Resource.Error("Login failed: empty response"))
                 }

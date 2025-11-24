@@ -53,8 +53,14 @@
             android:id="@+id/action_signupFragment_to_verifyEmailFragment"
             app:destination="@id/verifyEmailFragment"
             app:enterAnim="@android:anim/slide_in_left"
-            app:exitAnim="@android:anim/slide_out_right"/>
+            app:exitAnim="@android:anim/slide_out_right">
 
+            <!-- Pass email argument to VerifyEmailFragment -->
+            <argument
+                android:name="email"
+                app:argType="string"
+                android:defaultValue="" />
+        </action>
     </fragment>
 
     <!-- Verify Email Fragment -->
@@ -69,6 +75,11 @@
             app:destination="@id/loginFragment"
             app:popUpTo="@id/signupFragment"
             app:popUpToInclusive="true"/>
+
+        <argument
+            android:name="email"
+            app:argType="string"
+            android:defaultValue="" />
     </fragment>
 
     <!-- Home Fragment -->
