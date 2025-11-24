@@ -8,6 +8,17 @@ data class LoginRequest(
     @SerializedName("password") val password: String
 )
 
+data class SignupRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("password") val password: String,
+    @SerializedName("fullName") val fullName: String
+)
+
+data class ConfirmSignupRequest(
+    @SerializedName("email") val email: String,
+    @SerializedName("code") val code: String
+)
+
 // Refresh token request
 data class RefreshTokenRequest(
     @SerializedName("refreshToken") val refreshToken: String

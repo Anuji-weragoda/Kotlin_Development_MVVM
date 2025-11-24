@@ -16,7 +16,7 @@ class AuthInterceptor(
         // Endpoints that don't need authentication
         private val UNAUTHENTICATED_ENDPOINTS = listOf(
             "/auth/login",
-            "/auth/register",
+            "/auth/signup",
             "/auth/forgot-password",
             "/auth/confirm-password",
             "/auth/refresh",

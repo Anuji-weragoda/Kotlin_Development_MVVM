@@ -7,14 +7,21 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.example.androidapp.AuthApplication
 import com.example.androidapp.databinding.FragmentSignupBinding
+import com.example.androidapp.ui.factory.ViewModelFactory
+import kotlinx.coroutines.flow.collect
 
 class SignupFragment : Fragment() {
+
     private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: SignupViewModel by viewModels()
+    private val viewModel: SignupViewModel by viewModels {
+        ViewModelFactory((requireActivity().application as AuthApplication).authRepository)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,11 +36,10 @@ class SignupFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupClickListeners()
-        observeViewModel()
+        observeSignupState()
     }
 
     private fun setupClickListeners() {
-        // Signup button click
         binding.signupButton.setOnClickListener {
             val fullName = binding.fullNameEditText.text.toString()
             val email = binding.emailEditText.text.toString()
@@ -43,30 +49,34 @@ class SignupFragment : Fragment() {
             viewModel.signup(fullName, email, password, confirmPassword)
         }
 
-        // Navigate back to Login
         binding.loginTextView.setOnClickListener {
             findNavController().navigateUp()
         }
     }
 
-    private fun observeViewModel() {
-        viewModel.signupResult.observe(viewLifecycleOwner) { state ->
-            when (state) {
-                is SignupViewModel.SignupState.Idle -> {
-
-                }
-                is SignupViewModel.SignupState.Loading -> {
-                    showLoading(true)
-                }
-                is SignupViewModel.SignupState.Success -> {
-                    showLoading(false)
-                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
-
-                    findNavController().navigateUp()
-                }
-                is SignupViewModel.SignupState.Error -> {
-                    showLoading(false)
-                    Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+    private fun observeSignupState() {
+        viewLifecycleOwner.lifecycleScope.launchWhenStarted {
+            viewModel.signupState.collect { state ->
+                when (state) {
+                    is SignupViewModel.SignupState.Idle -> {
+                        showLoading(false)
+                    }
+                    is SignupViewModel.SignupState.Loading -> {
+                        showLoading(true)
+                    }
+                    is SignupViewModel.SignupState.Success -> {
+                        showLoading(false)
+                        Toast.makeText(
+                            requireContext(),
+                            "Signup successful!",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        findNavController().navigateUp()
+                    }
+                    is SignupViewModel.SignupState.Error -> {
+                        showLoading(false)
+                        Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -81,5 +91,4 @@ class SignupFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-
 }

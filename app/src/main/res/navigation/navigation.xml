@@ -48,11 +48,26 @@
         android:name="com.example.androidapp.ui.auth.signup.SignupFragment"
         android:label="Signup">
 
-        <!-- Navigate to Home after successful signup -->
+        <!-- Navigate to Verify Email after successful signup -->
         <action
-            android:id="@+id/action_signupFragment_to_homeFragment"
-            app:destination="@id/homeFragment"
-            app:popUpTo="@id/loginFragment"
+            android:id="@+id/action_signupFragment_to_verifyEmailFragment"
+            app:destination="@id/verifyEmailFragment"
+            app:enterAnim="@android:anim/slide_in_left"
+            app:exitAnim="@android:anim/slide_out_right"/>
+
+    </fragment>
+
+    <!-- Verify Email Fragment -->
+    <fragment
+        android:id="@+id/verifyEmailFragment"
+        android:name="com.example.androidapp.ui.auth.signup.VerifyEmailFragment"
+        android:label="Verify Email">
+
+        <!-- Navigate to Login after verification -->
+        <action
+            android:id="@+id/action_verifyEmailFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/signupFragment"
             app:popUpToInclusive="true"/>
     </fragment>
 
