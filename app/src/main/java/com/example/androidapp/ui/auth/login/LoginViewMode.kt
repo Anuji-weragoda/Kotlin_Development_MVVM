@@ -41,7 +41,7 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
                 when (resource) {
                     is Resource.Loading -> _loginResult.value = LoginState.Loading
                     is Resource.Success -> _loginResult.value =
-                        LoginState.Success("Welcome back, ${resource.data.userAttributes.email}!")
+                        LoginState.Success("Welcome back, ${resource.data.userAttributes?.email ?: "user"}!")
                     is Resource.Error -> _loginResult.value =
                         LoginState.Error(resource.message ?: "Login failed")
                 }

@@ -51,8 +51,8 @@ class SignupViewModel(private val authRepository: AuthRepository) : ViewModel() 
                     is Resource.Success -> {
                         val authData: AuthResponse = result.data
                         _signupState.value = SignupState.Success(
-                            email = authData.userAttributes.email,
-                            userConfirmed = authData.userAttributes.emailVerified.toBoolean()
+                            email = email,
+                            userConfirmed = authData.userConfirmed ?: false
                         )
                     }
                     is Resource.Error -> _signupState.value = SignupState.Error(result.message)

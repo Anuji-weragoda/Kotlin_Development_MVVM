@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.androidapp.data.repository.AuthRepository
 import com.example.androidapp.ui.auth.login.LoginViewModel
 import com.example.androidapp.ui.auth.signup.SignupViewModel
+import com.example.androidapp.ui.auth.signup.VerifyEmailViewModel
 
 class ViewModelFactory(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val email: String? = null // make it optional
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -19,6 +21,11 @@ class ViewModelFactory(
 
             modelClass.isAssignableFrom(SignupViewModel::class.java) -> {
                 SignupViewModel(authRepository) as T
+            }
+
+            modelClass.isAssignableFrom(VerifyEmailViewModel::class.java) -> {
+                val email = email ?: throw IllegalArgumentException("Email required for VerifyEmailViewModel")
+                VerifyEmailViewModel(authRepository, email) as T
             }
 
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

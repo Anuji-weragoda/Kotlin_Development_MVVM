@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
     id("kotlin-parcelize")
+    alias(libs.plugins.androidx.navigation.safe.args)
 }
 
 android {
@@ -89,5 +90,8 @@ dependencies {
     implementation(libs.timber)
     implementation(libs.coroutines.android)
     coreLibraryDesugaring(libs.core.desugar)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
+
 
 }

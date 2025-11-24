@@ -12,6 +12,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.androidapp.AuthApplication
 import com.example.androidapp.databinding.FragmentSignupBinding
 import com.example.androidapp.ui.factory.ViewModelFactory
+import com.example.androidapp.R
 import kotlinx.coroutines.flow.collect
 
 class SignupFragment : Fragment() {
@@ -71,7 +72,15 @@ class SignupFragment : Fragment() {
                             "Signup successful!",
                             Toast.LENGTH_SHORT
                         ).show()
-                        findNavController().navigateUp()
+                        val email = binding.emailEditText.text.toString()
+                        val bundle = Bundle().apply {
+                            putString("email", email)
+                        }
+                        findNavController().navigate(
+                            R.id.action_signupFragment_to_verifyEmailFragment,
+                            bundle
+                        )
+
                     }
                     is SignupViewModel.SignupState.Error -> {
                         showLoading(false)
