@@ -8,10 +8,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.fragment.NavHostFragment
 import com.example.androidapp.R
 import com.example.androidapp.databinding.ActivityMainBinding
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.dart.DartExecutor
+import com.example.androidapp.ChannelManager
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var flutterEngine: FlutterEngine
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,6 +30,17 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        // Initialize FlutterEngine
+        flutterEngine = FlutterEngine(this)
+
+        // Start executing Dart code in FlutterEngine
+        flutterEngine.dartExecutor.executeDartEntrypoint(
+            DartExecutor.DartEntrypoint.createDefault()
+        )
+
+        // Setup the MethodChannel
+        ChannelManager.setup(flutterEngine)
     }
 
     override fun onSupportNavigateUp(): Boolean {
