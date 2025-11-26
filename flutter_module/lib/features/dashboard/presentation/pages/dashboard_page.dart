@@ -25,97 +25,34 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+
+    // Listen for session updates from Android
     platform.setMethodCallHandler((call) async {
-      if (call.method == 'onUserSession') {
-        final Map<dynamic, dynamic>? args = call.arguments as Map<dynamic, dynamic>?;
+      if (call.method == 'updateUserSession') {
+        final Map<dynamic, dynamic>? args =
+            call.arguments as Map<dynamic, dynamic>?;
         if (args != null) {
-          final email = args['email'] as String?;
-          final userIdData = args['userId'] as String?;
-          final tokenData = args['token'] as String?;
-
-          debugPrint('Received onUserSession from Android: $email');
-
           setState(() {
-            userEmail = email;
-            userId = userIdData;
-            token = tokenData;
+            userEmail = args['email'] as String?;
+            userId = args['userId'] as String?;
+            token = args['accessToken'] as String?;
             isLoading = false;
             errorMessage = null;
           });
-          return null;
+          debugPrint('Received user session: $userEmail');
         }
       }
       return null;
     });
-
-    _initializeDashboard();
-  }
-
-  Future<void> _initializeDashboard() async {
-    await Future.delayed(const Duration(milliseconds: 1000));
-    if (mounted) {
-      _getUserSessionFromAndroid();
-    }
-  }
-
-  Future<void> _getUserSessionFromAndroid() async {
-    try {
-      final result = await platform.invokeMethod<Map>('getUserSession');
-
-      if (result != null) {
-        final email = result['email'] as String?;
-        final userIdData = result['userId'] as String?;
-        final tokenData = result['token'] as String?;
-
-        setState(() {
-          userEmail = email;
-          userId = userIdData;
-          token = tokenData;
-          isLoading = false;
-        });
-
-        debugPrint('✓ Dashboard initialized with real user: $email');
-      } else {
-        setState(() {
-          errorMessage = "No user session found";
-          isLoading = false;
-        });
-      }
-    } on PlatformException catch (e) {
-      debugPrint('PlatformException: ${e.code} - ${e.message}');
-
-      if (e.code == "NO_SESSION" && !isLoading) {
-        debugPrint('Session not ready, retrying in 500ms...');
-        setState(() {
-          errorMessage = "Session not ready, retrying...";
-          isLoading = true;
-        });
-
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) {
-          await _getUserSessionFromAndroid();
-        }
-      } else {
-        setState(() {
-          errorMessage = "Failed to get user session: ${e.message}";
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        errorMessage = "Error: $e";
-        isLoading = false;
-      });
-      debugPrint('Exception: $e');
-    }
   }
 
   String _getDisplayName() {
     if (userEmail == null) return 'Guest';
     final name = userEmail!.split('@')[0];
-    return name.split('.').map((s) =>
-      s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : s
-    ).join(' ');
+    return name
+        .split('.')
+        .map((s) => s.isNotEmpty ? s[0].toUpperCase() + s.substring(1) : s)
+        .join(' ');
   }
 
   Future<void> _handleSignOut() async {
@@ -124,12 +61,41 @@ class _DashboardPageState extends State<DashboardPage> {
     // Simulate sign out process
     await Future.delayed(const Duration(seconds: 1));
 
-    // Call your sign out method here
+    // TODO: Add real sign out logic here
     // Navigator.of(context).pushReplacementNamed('/login');
 
     if (mounted) {
       setState(() => isSigningOut = false);
     }
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -141,16 +107,11 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: AppColors.primaryDark,
-              ),
+              CircularProgressIndicator(color: AppColors.primaryDark),
               const SizedBox(height: 16),
               const Text(
                 'Loading your dashboard...',
-                style: TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
               ),
             ],
           ),
@@ -182,49 +143,16 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 24),
                 Text(
                   'Oops!',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0F172A),
-                  ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   errorMessage!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _getUserSessionFromAndroid,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryDark,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh_rounded, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Retry',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 15),
                 ),
               ],
             ),
@@ -241,7 +169,7 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with greeting and logout
+              // Header
               DashboardHeader(
                 displayName: _getDisplayName(),
                 isSigningOut: isSigningOut,
@@ -280,23 +208,19 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 32),
 
-              // Quick Actions Section
+              // Quick Actions
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   'Quick Actions',
                   style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: -0.5,
-                  ),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.5),
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // Action Cards
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -308,9 +232,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
                       ),
-                      onTap: () {
-                        debugPrint('View Profile tapped');
-                      },
+                      onTap: () => debugPrint('View Profile tapped'),
                     ),
                     const SizedBox(height: 12),
                     ActionCard(
@@ -320,9 +242,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
                       ),
-                      onTap: () {
-                        debugPrint('Settings tapped');
-                      },
+                      onTap: () => debugPrint('Settings tapped'),
                     ),
                     const SizedBox(height: 12),
                     ActionCard(
@@ -332,9 +252,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFFEC4899), Color(0xFFDB2777)],
                       ),
-                      onTap: () {
-                        debugPrint('Notifications tapped');
-                      },
+                      onTap: () => debugPrint('Notifications tapped'),
                     ),
                     const SizedBox(height: 12),
                     ActionCard(
@@ -344,9 +262,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
                       ),
-                      onTap: () {
-                        debugPrint('Help tapped');
-                      },
+                      onTap: () => debugPrint('Help tapped'),
                     ),
                   ],
                 ),
@@ -354,8 +270,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 32),
 
-              // User Info Section (Debug info)
-              if (userEmail != null) ...[
+              // User Info
+              if (userEmail != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
@@ -363,10 +279,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: const Color(0xFFF1F5F9),
-                        width: 1,
-                      ),
+                      border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withAlpha(10),
@@ -380,29 +293,21 @@ class _DashboardPageState extends State<DashboardPage> {
                       children: [
                         const Row(
                           children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              color: Color(0xFF64748B),
-                              size: 20,
-                            ),
+                            Icon(Icons.info_outline_rounded, color: Color(0xFF64748B), size: 20),
                             SizedBox(width: 8),
                             Text(
                               'Session Information',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
-                              ),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
                         _buildInfoRow('Email', userEmail!),
                         const Divider(height: 24),
-                        _buildInfoRow(
-                          'User ID',
-                          userId ?? 'N/A',
-                        ),
+                        _buildInfoRow('User ID', userId ?? 'N/A'),
                         const Divider(height: 24),
                         _buildInfoRow(
                           'Token',
@@ -414,42 +319,12 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                 ),
-              ],
 
               const SizedBox(height: 32),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
