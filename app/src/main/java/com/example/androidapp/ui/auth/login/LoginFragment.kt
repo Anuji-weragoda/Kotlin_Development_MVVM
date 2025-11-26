@@ -1,5 +1,6 @@
 package com.example.androidapp.ui.auth.login
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,12 +8,17 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.example.androidapp.AuthApplication
 import com.example.androidapp.R
 import com.example.androidapp.databinding.FragmentLoginBinding
-import com.example.androidapp.AuthApplication
+import com.example.androidapp.ui.FlutterDashboardActivity
 import com.example.androidapp.ui.factory.ViewModelFactory
-
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LoginFragment : Fragment() {
 
@@ -23,12 +29,9 @@ class LoginFragment : Fragment() {
         (requireActivity().application as AuthApplication).authRepository
     }
 
-    // ViewModel initialization with Factory (for dependency injection)
     private val viewModel: LoginViewModel by viewModels {
         ViewModelFactory(authRepository)
     }
-
-
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -39,43 +42,33 @@ class LoginFragment : Fragment() {
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupClickListeners()
         observeViewModel()
     }
 
     private fun setupClickListeners() {
-
         binding.loginButton.setOnClickListener {
             val email = binding.emailEditText.text.toString()
             val password = binding.passwordEditText.text.toString()
             viewModel.login(email, password)
         }
 
-        // Navigate to Signup screen
         binding.signupTextView.setOnClickListener {
             findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
         }
     }
 
-
     private fun observeViewModel() {
         viewModel.loginResult.observe(viewLifecycleOwner) { state ->
             when (state) {
-                is LoginViewModel.LoginState.Idle -> {
-
-                }
-                is LoginViewModel.LoginState.Loading -> {
-                    showLoading(true)
-                }
+                is LoginViewModel.LoginState.Idle -> {}
+                is LoginViewModel.LoginState.Loading -> showLoading(true)
                 is LoginViewModel.LoginState.Success -> {
                     showLoading(false)
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
-
-                    findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+                    navigateToFlutterDashboard()
                 }
                 is LoginViewModel.LoginState.Error -> {
                     showLoading(false)
@@ -85,12 +78,50 @@ class LoginFragment : Fragment() {
         }
     }
 
-
     private fun showLoading(isLoading: Boolean) {
         binding.loginButton.isEnabled = !isLoading
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
+    private fun navigateToFlutterDashboard() {
+        val tokenManager = (requireActivity().application as AuthApplication).tokenManager
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                var email: String? = null
+                var userId: String? = null
+                var token: String? = null
+
+                withContext(Dispatchers.IO) {
+                    email = tokenManager.getUserEmail().first()
+                    userId = tokenManager.getUserId().first()
+                    token = tokenManager.getAccessToken().first()
+                }
+
+                if (email.isNullOrEmpty() || userId.isNullOrEmpty() || token.isNullOrEmpty()) {
+                    Toast.makeText(requireContext(), "Error: User session incomplete", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                // Store session for Flutter usage
+                com.example.androidapp.ChannelManager.setUserSession(email!!, userId!!, token!!)
+
+                // Start Flutter Dashboard
+                val intent = Intent(requireContext(), FlutterDashboardActivity::class.java).apply {
+                    putExtra("email", email)
+                    putExtra("userId", userId)
+                    putExtra("token", token)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                startActivity(intent)
+                requireActivity().finish()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()
