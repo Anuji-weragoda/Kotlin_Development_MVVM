@@ -4,6 +4,7 @@ import '../widgets/dashboard_header.dart';
 import '../widgets/action_card.dart';
 import '../widgets/stat_card.dart';
 import '../../../../core/constants/app_colors.dart';
+import 'package:flutter_module/services/api_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -39,6 +40,10 @@ class _DashboardPageState extends State<DashboardPage> {
             isLoading = false;
             errorMessage = null;
           });
+
+          // Pass token to ApiService
+          if (token != null) ApiService.setAuthToken(token!);
+
           debugPrint('Received user session: $userEmail');
         }
       }
@@ -58,15 +63,10 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _handleSignOut() async {
     setState(() => isSigningOut = true);
 
-    // Simulate sign out process
+    // Simulate sign out
     await Future.delayed(const Duration(seconds: 1));
 
-    // TODO: Add real sign out logic here
-    // Navigator.of(context).pushReplacementNamed('/login');
-
-    if (mounted) {
-      setState(() => isSigningOut = false);
-    }
+    if (mounted) setState(() => isSigningOut = false);
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -169,16 +169,13 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               DashboardHeader(
                 displayName: _getDisplayName(),
                 isSigningOut: isSigningOut,
                 onSignOut: _handleSignOut,
               ),
-
-              // Stats Cards
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Row(
                   children: [
                     Expanded(
@@ -205,10 +202,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
-
-              // Quick Actions
+              const SizedBox(height: 16),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
@@ -254,23 +248,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       onTap: () => debugPrint('Notifications tapped'),
                     ),
-                    const SizedBox(height: 12),
-                    ActionCard(
-                      icon: Icons.help_rounded,
-                      title: 'Help & Support',
-                      description: 'Get assistance anytime',
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
-                      ),
-                      onTap: () => debugPrint('Help tapped'),
-                    ),
                   ],
                 ),
               ),
-
               const SizedBox(height: 32),
-
-              // User Info
               if (userEmail != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -319,17 +300,11 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                 ),
-
               const SizedBox(height: 32),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

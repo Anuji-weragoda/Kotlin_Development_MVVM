@@ -1,5 +1,4 @@
-import 'package:amplify_flutter/amplify_flutter.dart';
-import '../../../../services/api_service.dart';
+import 'package:flutter_module/services/api_service.dart';
 import '../models/user_info_model.dart';
 import '../models/dashboard_stats_model.dart';
 
@@ -23,19 +22,9 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   @override
   Future<UserInfoModel> getUserInfo() async {
     try {
-      // Get email from Amplify
-      String? email;
-      final attributes = await Amplify.Auth.fetchUserAttributes();
-      for (var attribute in attributes) {
-        if (attribute.userAttributeKey.key == 'email') {
-          email = attribute.value;
-          break;
-        }
-      }
-
-      // Get profile from API
+      // Get profile from API (host provides authentication token via ApiService)
       final profile = await ApiService.getUserProfile();
-      
+      final email = profile['email']?.toString();
       return UserInfoModel(
         email: email,
         displayName: profile['displayName'] ?? profile['username'],
@@ -121,12 +110,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
       await ApiService.logoutUser();
     } catch (e) {
       safePrint('Logout API error (continuing): $e');
-    }
-
-    try {
-      await Amplify.Auth.signOut();
-    } catch (e) {
-      throw Exception('Sign out failed: $e');
+      return;
     }
   }
 }

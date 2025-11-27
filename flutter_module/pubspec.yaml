@@ -28,8 +28,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  amplify_flutter: ^2.7.0
-  amplify_auth_cognito: ^2.7.0
+  # amplify_flutter and amplify_auth_cognito removed — host app provides authentication/token
 
     # QR code generation for TOTP setup
   qr_flutter: ^4.1.0
@@ -37,14 +36,14 @@ dependencies:
     # HTTP and secure storage
   flutter_secure_storage: ^9.0.0
   http: ^1.1.0
-  flutter_bloc: ^8.1.2
+  flutter_bloc: ^9.1.1
   equatable: ^2.0.5
-  get_it: ^7.2.0
+  get_it: ^9.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
