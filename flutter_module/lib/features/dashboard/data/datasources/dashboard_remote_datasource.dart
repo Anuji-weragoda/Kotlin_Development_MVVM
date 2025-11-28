@@ -1,4 +1,3 @@
-import 'package:amplify_flutter/amplify_flutter.dart';
 import '../../../../services/api_service.dart';
 import '../models/user_info_model.dart';
 import '../models/dashboard_stats_model.dart';
@@ -23,21 +22,11 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
   @override
   Future<UserInfoModel> getUserInfo() async {
     try {
-      // Get email from Amplify
-      String? email;
-      final attributes = await Amplify.Auth.fetchUserAttributes();
-      for (var attribute in attributes) {
-        if (attribute.userAttributeKey.key == 'email') {
-          email = attribute.value;
-          break;
-        }
-      }
-
       // Get profile from API
       final profile = await ApiService.getUserProfile();
       
       return UserInfoModel(
-        email: email,
+        email: profile['email'],
         displayName: profile['displayName'] ?? profile['username'],
       );
     } catch (e) {
@@ -105,7 +94,7 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
             }
           }
         } catch (e) {
-          safePrint('Error parsing attendance row: $e');
+          print('Error parsing attendance row: $e');
         }
       }
 
@@ -120,13 +109,10 @@ class DashboardRemoteDataSourceImpl implements DashboardRemoteDataSource {
     try {
       await ApiService.logoutUser();
     } catch (e) {
-      safePrint('Logout API error (continuing): $e');
+      print('Logout API error (continuing): $e');
     }
 
-    try {
-      await Amplify.Auth.signOut();
-    } catch (e) {
-      throw Exception('Sign out failed: $e');
-    }
+    // Token-based sign out logic
+    setAuthToken('');
   }
 }

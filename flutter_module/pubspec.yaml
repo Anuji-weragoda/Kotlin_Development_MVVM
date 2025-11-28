@@ -28,9 +28,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  amplify_flutter: ^2.7.0
-  amplify_auth_cognito: ^2.7.0
-
     # QR code generation for TOTP setup
   qr_flutter: ^4.1.0
 
