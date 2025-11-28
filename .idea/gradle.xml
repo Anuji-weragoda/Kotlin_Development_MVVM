@@ -24,13 +24,7 @@
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/flutter_module" />
             <option value="$PROJECT_DIR$/flutter_module/.android/Flutter" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/amplify_analytics_pinpoint-2.7.0/android" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/amplify_auth_cognito-2.7.0/android" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/amplify_db_common-0.4.14/android" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/amplify_secure_storage-0.5.13/android" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/device_info_plus-12.2.0/android" />
             <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_secure_storage-9.2.4/android" />
-            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/package_info_plus-9.0.0/android" />
             <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/path_provider_android-2.2.22/android" />
             <option value="$PROJECT_DIR$/../../../../flutter/packages/flutter_tools/gradle" />
           </set>

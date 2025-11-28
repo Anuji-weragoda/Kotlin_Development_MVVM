@@ -9,9 +9,6 @@ import 'features/dashboard/presentation/pages/dashboard_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Amplify (your existing setup)
-  // await _configureAmplify();
-  
   // Initialize dependency injection
   await di.init();
   
