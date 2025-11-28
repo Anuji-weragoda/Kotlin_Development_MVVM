@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/splashFragment">
+    app:startDestination="@id/webSocketTestFragment"> <!-- temporary start destination for testing -->
 
     <!-- Splash Fragment -->
     <fragment
@@ -95,5 +97,12 @@
             app:popUpTo="@id/homeFragment"
             app:popUpToInclusive="true"/>
     </fragment>
+
+    <!-- WebSocket Test Fragment -->
+    <fragment
+        android:id="@+id/webSocketTestFragment"
+        android:name="com.example.androidapp.ui.webSocket.WebSocketTestFragment"
+        android:label="WebSocket Test"
+        tools:layout="@layout/fragment_websocket_test" />
 
 </navigation>

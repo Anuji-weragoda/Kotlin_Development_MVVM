@@ -122,4 +122,11 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // OkHttp for WebSocket
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
+    // Lifecycle (ViewModel + LiveData)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
 }
