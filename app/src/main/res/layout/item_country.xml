@@ -4,10 +4,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
     android:layout_marginBottom="12dp"
     app:cardCornerRadius="16dp"
-    app:cardElevation="2dp"
-    app:cardBackgroundColor="@android:color/white"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@color/white"
     android:foreground="?android:attr/selectableItemBackground">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -15,75 +18,138 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
-        <!-- Flag/Globe Icon Container -->
+        <!-- Globe Icon Container -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/flagContainer"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            app:cardCornerRadius="14dp"
+            app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#E8F5E9"
+            app:cardBackgroundColor="#F5F3FF"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent">
 
             <ImageView
-                android:id="@+id/countryIcon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:id="@+id/countryIconImage"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_flag_filled"
-                app:tint="#2E7D32"/>
+                android:src="@drawable/ic_globe"
+                app:tint="#8B5CF6"
+                android:contentDescription="Country Icon" />
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Country Name -->
-        <TextView
-            android:id="@+id/countryNameText"
+        <!-- Content Container -->
+        <LinearLayout
+            android:id="@+id/contentContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:layout_marginStart="16dp"
             android:layout_marginEnd="12dp"
-            android:text="Country Name"
-            android:textSize="16sp"
-            android:textColor="#212121"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
             app:layout_constraintStart_toEndOf="@id/flagContainer"
-            app:layout_constraintEnd_toStartOf="@id/arrowIcon"
+            app:layout_constraintEnd_toStartOf="@id/arrowContainer"
             app:layout_constraintTop_toTopOf="@id/flagContainer"
-            app:layout_constraintBottom_toTopOf="@id/regionText"/>
+            app:layout_constraintBottom_toBottomOf="@id/flagContainer">
 
-        <!-- Region/Continent -->
-        <TextView
-            android:id="@+id/regionText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="12dp"
-            android:layout_marginTop="4dp"
-            android:text="Region • Continent"
-            android:textSize="13sp"
-            android:textColor="#757575"
-            android:maxLines="1"
-            android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/flagContainer"
-            app:layout_constraintEnd_toStartOf="@id/arrowIcon"
-            app:layout_constraintTop_toBottomOf="@id/countryNameText"
-            app:layout_constraintBottom_toBottomOf="@id/flagContainer"/>
+            <TextView
+                android:id="@+id/countryNameText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="United States"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="-0.01"
+                android:maxLines="1"
+                android:ellipsize="end"/>
 
-        <!-- Arrow Icon -->
-        <ImageView
-            android:id="@+id/arrowIcon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_media_play"
-            android:rotation="180"
-            app:tint="#BDBDBD"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/regionText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Americas"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:maxLines="1"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" • "
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"/>
+
+                <TextView
+                    android:id="@+id/continentText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="North America"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:maxLines="1"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/additionalInfoLayout"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"/>
+
+                <TextView
+                    android:id="@+id/capitalText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="Washington, D.C."
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:maxLines="1"
+                    android:ellipsize="end"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Arrow Icon Container -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/arrowContainer"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            app:cardCornerRadius="10dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#F9FAFB"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="›"
+                android:textSize="20sp"
+                android:textColor="@color/text_secondary"/>
+
+        </com.google.android.material.card.MaterialCardView>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

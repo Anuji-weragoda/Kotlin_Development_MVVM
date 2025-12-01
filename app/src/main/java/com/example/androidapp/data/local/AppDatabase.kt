@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 import android.content.Context
 import com.example.androidapp.data.model.Country
 
-@Database(entities = [Country::class], version = 1, exportSchema = false)
+@Database(entities = [Country::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun countryDao(): CountryDao
 
@@ -20,7 +20,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "country_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

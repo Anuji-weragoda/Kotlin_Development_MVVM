@@ -9,18 +9,21 @@ class CountryRepository(
     private val api: CountryApi,
     private val dao: CountryDao
 ) {
-
     val countries: Flow<List<Country>> = dao.getCountries()
 
     suspend fun fetchAndSaveCountries() {
         val response = api.getAllCountries()
-
         if (response.isSuccessful) {
             response.body()?.let { list ->
-                dao.insertCountries(list)
+
+                val mappedList = list.map { country ->
+                    country.copy(nameCommon = country.name.common)
+                }
+                dao.insertCountries(mappedList)
             }
         } else {
             throw Exception("API error: ${response.code()} - ${response.message()}")
         }
     }
+
 }
