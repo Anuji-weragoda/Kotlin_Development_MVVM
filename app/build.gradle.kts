@@ -112,7 +112,6 @@ dependencies {
 
 
     // Flutter Module
-    // Include the flutter module project for all variants
     debugImplementation(project(":flutter"))
     releaseImplementation(project(":flutter"))
     add("profileImplementation", project(":flutter"))
@@ -122,4 +121,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // RecyclerView
+    implementation("androidx.recyclerview:recyclerview:1.3.1")
+
+
 }
