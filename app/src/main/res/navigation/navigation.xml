@@ -2,7 +2,21 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/splashFragment">
+    app:startDestination="@id/countryFragment">
+
+    <!-- Country Fragment (temporary start) -->
+    <fragment
+        android:id="@+id/countryFragment"
+        android:name="com.example.androidapp.ui.country.CountryFragment"
+        android:label="Countries">
+
+        <!-- Optional: navigate to login page from here -->
+        <action
+            android:id="@+id/action_countryFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
+            app:popUpTo="@id/countryFragment"
+            app:popUpToInclusive="true"/>
+    </fragment>
 
     <!-- Splash Fragment -->
     <fragment

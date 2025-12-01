@@ -9,7 +9,7 @@ import com.example.androidapp.ui.auth.signup.VerifyEmailViewModel
 
 class ViewModelFactory(
     private val authRepository: AuthRepository,
-    private val email: String? = null // make it optional
+    private val email: String? = null
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
