@@ -4,20 +4,23 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 import com.google.gson.annotations.SerializedName
-import com.example.androidapp.data.model.Converters
 
-@Entity(
-    tableName = "countries"
-)
+@Entity(tableName = "countries")
 @TypeConverters(Converters::class)
 data class Country(
-    @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
+    @PrimaryKey
+    val nameCommon: String,
     @SerializedName("name")
-    val name: Name
+    val name: Name,
+    @SerializedName("region")
+    val region: String? = null,
+    @SerializedName("subregion")
+    val subregion: String? = null
 )
 
 data class Name(
     @SerializedName("common")
-    val common: String
+    val common: String,
+    @SerializedName("official")
+    val official: String? = null
 )

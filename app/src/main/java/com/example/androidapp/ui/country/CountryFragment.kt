@@ -1,9 +1,12 @@
 package com.example.androidapp.ui.country
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -34,11 +37,20 @@ class CountryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Setup RecyclerView
-        binding.countryRecyclerView.layoutManager =
-            LinearLayoutManager(requireContext())
-        binding.countryRecyclerView.adapter = adapter
+        setupRecyclerView()
+        setupViewModel()
+        setupSearch()
+        observeData()
+    }
 
+    private fun setupRecyclerView() {
+        binding.countryRecyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = this@CountryFragment.adapter
+        }
+    }
+
+    private fun setupViewModel() {
         // Setup Retrofit
         val retrofit = Retrofit.Builder()
             .baseUrl("https://restcountries.com/")
@@ -54,14 +66,55 @@ class CountryFragment : Fragment() {
         // Setup ViewModel
         val factory = CountryViewModelFactory(repository)
         viewModel = ViewModelProvider(this, factory)[CountryViewModel::class.java]
+    }
+
+    private fun setupSearch() {
+        binding.searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val query = s.toString()
+                adapter.filter(query)
+
+                // Show/hide clear button
+                binding.clearSearchButton.isVisible = query.isNotEmpty()
+
+                // Show/hide empty state
+                updateEmptyState()
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        binding.clearSearchButton.setOnClickListener {
+            binding.searchEditText.text.clear()
+        }
+    }
+
+    private fun observeData() {
+        // Show loading
+        binding.progressBar.isVisible = true
 
         // Observe LiveData from Room
         viewModel.countries.observe(viewLifecycleOwner) { countries ->
+            binding.progressBar.isVisible = false
+
             adapter.setData(countries)
+
+            // Update country count
+            binding.countryCountText.text = "${countries.size} countries available"
+
+            updateEmptyState()
         }
 
-        // Fetch fresh data from API → save to Room
+        // Fetch fresh data from API and save to Room
         viewModel.fetchCountries()
+    }
+
+    private fun updateEmptyState() {
+        val isEmpty = adapter.itemCount == 0
+        binding.emptyStateLayout.isVisible = isEmpty
+        binding.countryRecyclerView.isVisible = !isEmpty
     }
 
     override fun onDestroyView() {

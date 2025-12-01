@@ -13,6 +13,6 @@ interface CountryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCountries(countries: List<Country>)
 
-    @Query("SELECT * FROM countries")
+    @Query("SELECT * FROM countries ORDER BY nameCommon ASC")
     fun getCountries(): Flow<List<Country>>
 }
