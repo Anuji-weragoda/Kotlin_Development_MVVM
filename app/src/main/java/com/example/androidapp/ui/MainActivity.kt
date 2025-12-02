@@ -15,6 +15,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var flutterEngine: FlutterEngine
+
     private val ENGINE_ID = "main"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,14 +30,21 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // Initialize FlutterEngine
+        // --- Initialize FlutterEngine ---
         flutterEngine = FlutterEngine(this)
-        flutterEngine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
+        flutterEngine.dartExecutor.executeDartEntrypoint(
+            DartExecutor.DartEntrypoint.createDefault()
+        )
 
-        // Setup MethodChannel
-        ChannelManager.setup(flutterEngine)
+        // --- Setup ChannelManager (no need to instantiate) ---
+        ChannelManager.setup(flutterEngine, this)
 
-        // Cache the engine for reuse
+        // --- Cache FlutterEngine ---
         FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        ChannelManager.dispose()
     }
 }
