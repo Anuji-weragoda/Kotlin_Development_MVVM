@@ -51,19 +51,14 @@ class CountryFragment : Fragment() {
     }
 
     private fun setupViewModel() {
-        // Setup Retrofit
         val retrofit = Retrofit.Builder()
             .baseUrl("https://restcountries.com/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         val api = retrofit.create(CountryApi::class.java)
-
-        // Setup Room + Repository
         val dao = AppDatabase.getDatabase(requireContext()).countryDao()
         val repository = CountryRepository(api, dao)
-
-        // Setup ViewModel
         val factory = CountryViewModelFactory(repository)
         viewModel = ViewModelProvider(this, factory)[CountryViewModel::class.java]
     }
@@ -71,19 +66,14 @@ class CountryFragment : Fragment() {
     private fun setupSearch() {
         binding.searchEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun afterTextChanged(s: Editable?) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 val query = s.toString()
                 adapter.filter(query)
-
-                // Show/hide clear button
                 binding.clearSearchButton.isVisible = query.isNotEmpty()
-
-                // Show/hide empty state
                 updateEmptyState()
             }
-
-            override fun afterTextChanged(s: Editable?) {}
         })
 
         binding.clearSearchButton.setOnClickListener {
@@ -92,23 +82,21 @@ class CountryFragment : Fragment() {
     }
 
     private fun observeData() {
-        // Show loading
+
         binding.progressBar.isVisible = true
 
-        // Observe LiveData from Room
         viewModel.countries.observe(viewLifecycleOwner) { countries ->
-            binding.progressBar.isVisible = false
+            if (countries.isNotEmpty()) {
 
-            adapter.setData(countries)
+                binding.progressBar.isVisible = false
+                adapter.setData(countries)
+                binding.countryCountText.text = "${countries.size} countries available"
+                updateEmptyState()
+            } else {
 
-            // Update country count
-            binding.countryCountText.text = "${countries.size} countries available"
-
-            updateEmptyState()
+                viewModel.fetchCountries()
+            }
         }
-
-        // Fetch fresh data from API and save to Room
-        viewModel.fetchCountries()
     }
 
     private fun updateEmptyState() {

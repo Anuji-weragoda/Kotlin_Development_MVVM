@@ -19,7 +19,7 @@ class CountryRepository(
                 val mappedList = list.map { country ->
                     country.copy(nameCommon = country.name.common)
                 }
-                dao.insertCountries(mappedList)
+                dao.upsertCountries(mappedList)
             }
         } else {
             throw Exception("API error: ${response.code()} - ${response.message()}")
