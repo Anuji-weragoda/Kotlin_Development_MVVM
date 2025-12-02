@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_module/core/constants/bluetooth_constants.dart';
 import '../models/bluetooth_device_model.dart';
+import 'dart:io';
 
 abstract class BluetoothDataSource {
   Future<bool> isBluetoothEnabled();
@@ -106,10 +107,54 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Stream<List<BluetoothDeviceModel>> startScan({int duration = 10000}) {
-    _channel.invokeMethod(
-      BluetoothConstants.methodStartScan,
-      {'duration': duration},
-    );
+
+    try {
+      _channel.invokeMethod(
+        BluetoothConstants.methodStartScan,
+        {'duration': duration},
+      );
+    } catch (_) {
+
+    }
+
+
+    if (kDebugMode) {
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final mockList = [
+          {
+            'name': 'Mock BLE Sensor',
+            'address': '00:11:22:33:44:55',
+            'rssi': -48,
+            'isConnected': false,
+            'deviceType': 'ble',
+            'services': ['0000180f-0000-1000-8000-00805f9b34fb']
+          },
+          {
+            'name': 'Mock Headset',
+            'address': '66:77:88:99:AA:BB',
+            'rssi': -63,
+            'isConnected': false,
+            'deviceType': 'classic',
+            'services': []
+          },
+          {
+            'name': 'Mock Heart Rate',
+            'address': 'CC:DD:EE:FF:00:11',
+            'rssi': -72,
+            'isConnected': false,
+            'deviceType': 'ble',
+            'services': ['0000180d-0000-1000-8000-00805f9b34fb']
+          }
+        ];
+
+        final devices = mockList
+            .map((e) => BluetoothDeviceModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        _devicesController.add(devices);
+      });
+    }
+
     return _devicesController.stream;
   }
 
