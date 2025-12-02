@@ -1,4 +1,3 @@
-// lib/core/di/injection_container.dart
 
 import 'package:get_it/get_it.dart';
 import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
@@ -9,6 +8,10 @@ import '../../features/bluetooth/data/datasources/bluetooth_datasource.dart';
 import '../../features/bluetooth/data/repositories/bluetooth_repository_impl.dart';
 import '../../features/bluetooth/domain/repositories/bluetooth_repository.dart';
 import '../../features/bluetooth/presentation/cubit/bluetooth_cubit.dart';
+import '../../features/wifi/data/datasources/wifi_datasource.dart';
+import '../../features/wifi/data/repository/wifi_repository_impl.dart';
+import '../../features/wifi/domain/repository/wifi_repository.dart';
+import '../../features/wifi/presentation/cubit/wifi_cubit.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -45,9 +48,12 @@ Future<void> init() async {
     () => BluetoothDataSourceImpl(),
   );
 
-  // Add more feature registrations here as you refactor them
-  // Example:
-  // //! Features - Auth
-  // sl.registerFactory(() => AuthCubit(sl()));
-  // sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
+  // WiFi feature registrations
+  sl.registerFactory(() => WifiCubit(repository: sl<WifiRepository>()));
+
+  sl.registerLazySingleton<WifiRepository>(() => WifiRepositoryImpl(dataSource: sl<WifiDataSource>()));
+
+  sl.registerLazySingleton<WifiDataSource>(() => WifiDataSourceImpl());
+
+
 }

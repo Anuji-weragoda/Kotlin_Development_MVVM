@@ -5,6 +5,8 @@ import 'features/dashboard/presentation/cubit/dashboard_cubit.dart';
 import 'features/dashboard/presentation/pages/dashboard_page.dart';
 import 'features/bluetooth/presentation/cubit/bluetooth_cubit.dart';
 import 'features/bluetooth/presentation/pages/bluetooth_page.dart';
+import 'features/wifi/presentation/cubit/wifi_cubit.dart';
+import 'features/wifi/presentation/pages/wifi_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +30,9 @@ class MyApp extends StatelessWidget {
         BlocProvider<BluetoothCubit>(
           create: (context) => di.sl<BluetoothCubit>(),
         ),
+        BlocProvider<WifiCubit>(
+          create: (context) => di.sl<WifiCubit>(),
+        ),
         // Add more BLoC providers as you refactor other features
         // BlocProvider<AuthCubit>(
         //   create: (context) => di.sl<AuthCubit>(),
@@ -45,6 +50,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/': (context) => const DashboardPage(),
           '/bluetooth': (context) => const BluetoothPage(),
+          '/wifi': (context) => const WifiPage(),
         },
         // Alternative: Use onGenerateRoute for more control
         onGenerateRoute: _generateRoute,
@@ -62,8 +68,7 @@ class MyApp extends StatelessWidget {
         return _createRoute(const BluetoothPage());
 
       case '/wifi':
-        // No wifi page available; fall back to dashboard
-        return _createRoute(const DashboardPage());
+        return _createRoute(const WifiPage());
 
       default:
         return MaterialPageRoute(
