@@ -26,11 +26,10 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
 
-    // Listen for session updates from Android
     platform.setMethodCallHandler((call) async {
       if (call.method == 'updateUserSession') {
         final Map<dynamic, dynamic>? args =
-            call.arguments as Map<dynamic, dynamic>?;
+        call.arguments as Map<dynamic, dynamic>?;
         if (args != null) {
           setState(() {
             userEmail = args['email'] as String?;
@@ -61,12 +60,28 @@ class _DashboardPageState extends State<DashboardPage> {
     // Simulate sign out process
     await Future.delayed(const Duration(seconds: 1));
 
-    // TODO: Add real sign out logic here
+    // TODO: real sign out logic here
     // Navigator.of(context).pushReplacementNamed('/login');
 
     if (mounted) {
       setState(() => isSigningOut = false);
     }
+  }
+
+  void _navigateToBluetooth() {
+    Navigator.of(context).pushNamed('/bluetooth');
+    // Or if you don't have named routes:
+    // Navigator.of(context).push(
+    //   MaterialPageRoute(builder: (context) => const BluetoothScreen()),
+    // );
+  }
+
+  void _navigateToWifi() {
+    Navigator.of(context).pushNamed('/wifi');
+    // Or if you don't have named routes:
+    // Navigator.of(context).push(
+    //   MaterialPageRoute(builder: (context) => const WifiScreen()),
+    // );
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -208,6 +223,52 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 32),
 
+              // Connectivity Section
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Connectivity',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.5),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildConnectivityCard(
+                        icon: Icons.bluetooth_rounded,
+                        title: 'Bluetooth',
+                        description: 'Manage BLE devices',
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                        ),
+                        onTap: _navigateToBluetooth,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildConnectivityCard(
+                        icon: Icons.wifi_rounded,
+                        title: 'Wi-Fi',
+                        description: 'Network settings',
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF10B981), Color(0xFF059669)],
+                        ),
+                        onTap: _navigateToWifi,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
               // Quick Actions
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
@@ -321,6 +382,66 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
 
               const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectivityCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Gradient gradient,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(51),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withAlpha(204),
+                ),
+              ),
             ],
           ),
         ),
