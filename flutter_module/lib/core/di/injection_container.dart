@@ -44,10 +44,7 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<BluetoothDataSource>(
-    // Use mock BLE data so the Flutter UI shows deterministic mock devices
-    // during development. Change to `false` to use the native platform
-    // implementation.
-    () => BluetoothDataSourceImpl(useMockData: true),
+    () => BluetoothDataSourceImpl(),
   );
 
   // WiFi feature registrations

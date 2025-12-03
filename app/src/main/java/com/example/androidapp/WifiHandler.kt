@@ -3,7 +3,6 @@ package com.example.androidapp
 import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import com.example.androidapp.data.local.WifiPreferences
 import com.example.androidapp.data.model.SavedWifiNetwork
@@ -25,6 +24,13 @@ class WifiHandler(
     private val repository = WifiRepository(context, preferences)
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
+    // Whether Dart client is ready to receive callbacks
+    @Volatile
+    private var dartClientReady: Boolean = false
+
+    // Buffer to hold last networks payload until Dart is ready
+    private val pendingNetworks = mutableListOf<List<Map<String, Any>>>()
+
     init {
         channel.setMethodCallHandler(this)
         Timber.d("WifiHandler registered on channel")
@@ -32,6 +38,28 @@ class WifiHandler(
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        // Handle clientReady handshake from Dart
+        if (call.method == "clientReady") {
+            Timber.d("WifiHandler: clientReady received from Dart: args=${call.arguments}")
+            dartClientReady = true
+            // Flush any pending networks
+            try {
+                pendingNetworks.forEach { networksList ->
+                    try {
+                        channel.invokeMethod("onNetworksFound", networksList)
+                    } catch (invokeEx: Exception) {
+                        Timber.e(invokeEx, "WifiHandler: flush invokeMethod failed: ${invokeEx.message}")
+                    }
+                }
+            } catch (t: Throwable) {
+                Timber.w(t, "WifiHandler: error flushing pending networks")
+            } finally {
+                pendingNetworks.clear()
+            }
+            result.success(null)
+            return
+        }
+
         when (call.method) {
             "isWifiEnabled" -> {
                 result.success(repository.isWifiEnabled())
@@ -61,10 +89,12 @@ class WifiHandler(
                     val perms = mutableListOf<String>()
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                         perms.add(Manifest.permission.NEARBY_WIFI_DEVICES)
-                    } else {
-                        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
-                        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
                     }
+                    // Always add location permissions - required for Wi-Fi scanning on all Android versions
+                    perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                    perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+                    Timber.d("Requesting Wi-Fi permissions: $perms")
                     ActivityCompat.requestPermissions(activity, perms.toTypedArray(), REQUEST_WIFI_PERMISSIONS)
                     result.success(null)
                 }
@@ -153,23 +183,32 @@ class WifiHandler(
     private fun scanNetworks(result: MethodChannel.Result) {
         scope.launch {
             try {
-                repository.scanNetworks().collectLatest { networks ->
-                    val networksList = networks.map { network ->
-                        mapOf(
-                            "ssid" to network.ssid,
-                            "bssid" to network.bssid,
-                            "capabilities" to network.capabilities,
-                            "level" to network.level,
-                            "frequency" to network.frequency,
-                            "isSecured" to network.isSecured,
-                            "isSaved" to network.isSaved,
-                            "isConnected" to network.isConnected
-                        )
+                Timber.d("scanNetworks() started - requesting Wi-Fi network scan")
+                withTimeoutOrNull(10000L) {
+                    repository.scanNetworks().collectLatest { networks ->
+                        Timber.d("scanNetworks() received ${networks.size} networks")
+                        val networksList = networks.map { network ->
+                            Timber.d("  - Found network: ${network.ssid} (level=${network.level}, secured=${network.isSecured})")
+                            mapOf(
+                                "ssid" to network.ssid,
+                                "bssid" to network.bssid,
+                                "capabilities" to network.capabilities,
+                                "level" to network.level,
+                                "frequency" to network.frequency,
+                                "isSecured" to network.isSecured,
+                                "isSaved" to network.isSaved,
+                                "isConnected" to network.isConnected
+                            )
+                        }
+                        sendNetworksToFlutter(networksList)
                     }
-                    channel.invokeMethod("onNetworksFound", networksList)
+                } ?: run {
+                    Timber.w("scanNetworks() timed out after 10 seconds")
+                    channel.invokeMethod("onNetworksFound", emptyList<Map<String, Any>>())
                 }
                 result.success(null)
             } catch (e: Exception) {
+                Timber.e(e, "scanNetworks() error: ${e.message}")
                 result.error("SCAN_ERROR", e.message, null)
             }
         }
@@ -235,5 +274,19 @@ class WifiHandler(
 
     fun dispose() {
         scope.cancel()
+    }
+
+    private fun sendNetworksToFlutter(networksList: List<Map<String, Any>>) {
+        if (dartClientReady) {
+            try {
+                channel.invokeMethod("onNetworksFound", networksList)
+            } catch (invokeEx: Exception) {
+                Timber.e(invokeEx, "WifiHandler: invokeMethod failed when sending networks: ${invokeEx.message}")
+            }
+        } else {
+            Timber.d("WifiHandler: Dart client not ready - buffering ${networksList.size} networks")
+            pendingNetworks.clear()
+            pendingNetworks.add(networksList)
+        }
     }
 }

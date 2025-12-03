@@ -105,20 +105,34 @@ class WifiRepository(
 
     fun scanNetworks(): Flow<List<WifiNetwork>> = callbackFlow {
         Log.d(TAG, "scanNetworks() called. SDK=${Build.VERSION.SDK_INT}, hasPermissions=${hasPermissions()}")
+
+        // Detailed permission logging
+        val fineLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarseLocation = ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        Log.d(TAG, "Permission status - FINE_LOCATION: $fineLocation, COARSE_LOCATION: $coarseLocation")
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val nearbyWifi = ActivityCompat.checkSelfPermission(context, Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED
+            Log.d(TAG, "Permission status - NEARBY_WIFI_DEVICES: $nearbyWifi")
+        }
+
         if (!hasPermissions()) {
-            // Don't close immediately here — the caller/handler should request permissions and
-            // scanning can either retry or fall back to saved networks. Log and continue so
-            // the platform channel can deliver an empty result or saved networks as appropriate.
             Log.w(TAG, "Missing required runtime permissions for scanning Wi‑Fi — results may be empty until permissions are granted")
         }
 
         // On many Android versions, location services must be enabled for Wi‑Fi scanning to return results.
         val locationOn = isLocationEnabled()
-        Log.d(TAG, "location services enabled=$locationOn")
+        Log.d(TAG, "Location services enabled=$locationOn (SDK=${Build.VERSION.SDK_INT})")
 
         if (!locationOn && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            // On Android < 12, location being off commonly prevents scan results.
-            Log.w(TAG, "Location services are disabled; scan results may be empty")
+            Log.w(TAG, "CRITICAL: Location services are disabled; scan results will be empty on Android < 12")
+        }
+
+        // Ensure Wi-Fi is enabled
+        val wifiEnabled = isWifiEnabled()
+        Log.d(TAG, "Wi-Fi enabled=$wifiEnabled")
+        if (!wifiEnabled) {
+            Log.w(TAG, "WARNING: Wi-Fi is disabled; no networks will be found")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -176,6 +190,29 @@ class WifiRepository(
                     @Suppress("DEPRECATION")
                     val started = wifiManager.startScan()
                     Log.d(TAG, "startScan() called, returned=$started")
+
+                    // Get cached results immediately as fallback
+                    try {
+                        @Suppress("DEPRECATION")
+                        val cachedResults = wifiManager.scanResults
+                        if (cachedResults.isNotEmpty()) {
+                            Log.d(TAG, "Sending cached results immediately: count=${cachedResults.size}")
+                            val networks = cachedResults.map { scanResult ->
+                                WifiNetwork(
+                                    ssid = scanResult.SSID,
+                                    bssid = scanResult.BSSID,
+                                    capabilities = scanResult.capabilities,
+                                    level = scanResult.level,
+                                    frequency = scanResult.frequency,
+                                    isSecured = !scanResult.capabilities.contains("OPEN"),
+                                    isSaved = preferences.isNetworkSaved(scanResult.SSID)
+                                )
+                            }
+                            trySend(networks)
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error getting cached results: ${e.message}")
+                    }
                 } catch (e: SecurityException) {
                     Log.w(TAG, "startScan() failed with SecurityException: ${e.message}")
                     trySend(emptyList())
@@ -184,7 +221,11 @@ class WifiRepository(
                     trySend(emptyList())
                 }
 
-                awaitClose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
+                awaitClose {
+                    try {
+                        context.unregisterReceiver(receiver)
+                    } catch (_: Exception) {}
+                }
             }
         } else {
             // Legacy scanning for Android 9 and below
