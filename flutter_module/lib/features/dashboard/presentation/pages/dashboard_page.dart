@@ -4,6 +4,7 @@ import '../widgets/dashboard_header.dart';
 import '../widgets/action_card.dart';
 import '../widgets/stat_card.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../payment/presentation/pages/payment_page.dart'; // <-- import payment page
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -30,7 +31,7 @@ class _DashboardPageState extends State<DashboardPage> {
     platform.setMethodCallHandler((call) async {
       if (call.method == 'updateUserSession') {
         final Map<dynamic, dynamic>? args =
-            call.arguments as Map<dynamic, dynamic>?;
+        call.arguments as Map<dynamic, dynamic>?;
         if (args != null) {
           setState(() {
             userEmail = args['email'] as String?;
@@ -57,16 +58,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _handleSignOut() async {
     setState(() => isSigningOut = true);
-
-    // Simulate sign out process
     await Future.delayed(const Duration(seconds: 1));
-
-    // TODO: Add real sign out logic here
-    // Navigator.of(context).pushReplacementNamed('/login');
-
-    if (mounted) {
-      setState(() => isSigningOut = false);
-    }
+    if (mounted) setState(() => isSigningOut = false);
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -103,61 +96,14 @@ class _DashboardPageState extends State<DashboardPage> {
     if (isLoading) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: AppColors.primaryDark),
-              const SizedBox(height: 16),
-              const Text(
-                'Loading your dashboard...',
-                style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
-              ),
-            ],
-          ),
-        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (errorMessage != null) {
       return Scaffold(
         backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withAlpha(26),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.error_outline_rounded,
-                    size: 56,
-                    color: Colors.red,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Oops!',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 15),
-                ),
-              ],
-            ),
-          ),
-        ),
+        body: Center(child: Text(errorMessage!)),
       );
     }
 
@@ -169,14 +115,13 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               DashboardHeader(
                 displayName: _getDisplayName(),
                 isSigningOut: isSigningOut,
                 onSignOut: _handleSignOut,
               ),
 
-              // Stats Cards
+              // Stats Cards (unchanged)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -235,90 +180,26 @@ class _DashboardPageState extends State<DashboardPage> {
                       onTap: () => debugPrint('View Profile tapped'),
                     ),
                     const SizedBox(height: 12),
+                    // **New Payment Action**
                     ActionCard(
-                      icon: Icons.settings_rounded,
-                      title: 'Settings',
-                      description: 'Configure your preferences',
+                      icon: Icons.payment_rounded,
+                      title: 'Make a Payment',
+                      description: 'Pay using Adyen',
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF8B5CF6), Color(0xFF7C3AED)],
+                        colors: [Color(0xFF10B981), Color(0xFF059669)],
                       ),
-                      onTap: () => debugPrint('Settings tapped'),
-                    ),
-                    const SizedBox(height: 12),
-                    ActionCard(
-                      icon: Icons.notification_important_rounded,
-                      title: 'Notifications',
-                      description: 'View your recent updates',
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFEC4899), Color(0xFFDB2777)],
-                      ),
-                      onTap: () => debugPrint('Notifications tapped'),
-                    ),
-                    const SizedBox(height: 12),
-                    ActionCard(
-                      icon: Icons.help_rounded,
-                      title: 'Help & Support',
-                      description: 'Get assistance anytime',
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
-                      ),
-                      onTap: () => debugPrint('Help tapped'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PaymentPage(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 32),
-
-              // User Info
-              if (userEmail != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFFF1F5F9), width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(10),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.info_outline_rounded, color: Color(0xFF64748B), size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Session Information',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0F172A)),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildInfoRow('Email', userEmail!),
-                        const Divider(height: 24),
-                        _buildInfoRow('User ID', userId ?? 'N/A'),
-                        const Divider(height: 24),
-                        _buildInfoRow(
-                          'Token',
-                          token != null && token!.length > 20
-                              ? '${token!.substring(0, 20)}...'
-                              : token ?? 'N/A',
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
               const SizedBox(height: 32),
             ],
@@ -326,10 +207,5 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

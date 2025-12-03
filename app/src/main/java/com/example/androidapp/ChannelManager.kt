@@ -3,25 +3,40 @@ package com.example.androidapp
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import timber.log.Timber
+import com.example.androidapp.data.repository.AdyenPaymentRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object ChannelManager {
 
     private var flutterEngine: FlutterEngine? = null
-    private var methodChannel: MethodChannel? = null
+    private var dashboardChannel: MethodChannel? = null
+    private var paymentChannel: MethodChannel? = null
     private var userSession: Map<String, String>? = null
 
-    private const val CHANNEL = "com.example.flutter/dashboard"
+    // Add payment repository instance
+    private var paymentRepository: AdyenPaymentRepository? = null
 
-    // Initialize MethodChannel once
+    private const val DASHBOARD_CHANNEL = "com.example.flutter/dashboard"
+    private const val PAYMENT_CHANNEL = "com.example.app/adyen"
+
+    // Call this from MainActivity to inject dependencies
+    fun setPaymentRepository(repository: AdyenPaymentRepository) {
+        paymentRepository = repository
+    }
+
     fun setup(engine: FlutterEngine) {
         flutterEngine = engine
 
-        methodChannel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL)
-        methodChannel?.setMethodCallHandler { call, result ->
-            Timber.d("ChannelManager handler called: ${call.method}")
+        // Dashboard Channel
+        dashboardChannel = MethodChannel(engine.dartExecutor.binaryMessenger, DASHBOARD_CHANNEL)
+        dashboardChannel?.setMethodCallHandler { call, result ->
+            Timber.d("Dashboard channel handler called: ${call.method}")
             when (call.method) {
                 "getUserSession" -> {
-                    if (userSession != null && userSession!!.isNotEmpty()) {
+                    if (!userSession.isNullOrEmpty()) {
                         result.success(userSession)
                     } else {
                         result.error("NO_SESSION", "User session not found", null)
@@ -30,7 +45,63 @@ object ChannelManager {
                 else -> result.notImplemented()
             }
         }
-    }
+
+        // Payment Channel
+        paymentChannel = MethodChannel(engine.dartExecutor.binaryMessenger, PAYMENT_CHANNEL)
+        paymentChannel?.setMethodCallHandler { call, result ->
+            Timber.d("Payment channel handler called: ${call.method}")
+            when (call.method) {
+                "startPayment" -> {
+                    val amount = call.argument<String>("amount") ?: "0.0"
+                    val currency = call.argument<String>("currency") ?: "USD"
+
+                    Timber.d("Processing payment: $amount $currency")
+
+                    if (paymentRepository == null) {
+                        result.error("NO_REPOSITORY", "Payment repository not initialized", null)
+                        return@setMethodCallHandler
+                    }
+
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            val paymentResult = withContext(Dispatchers.IO) {
+                                paymentRepository!!.startPayment(amount, currency)
+                            }
+
+                            paymentResult.fold(
+                                onSuccess = { paymentData ->
+                                    Timber.d("Payment result: $paymentData")
+
+                                    // Return structured data to Flutter
+                                    val resultMap = mapOf(
+                                        "success" to paymentData.success,
+                                        "message" to paymentData.message,
+                                        "transactionId" to paymentData.transactionId,
+                                        "resultCode" to paymentData.resultCode,
+                                        "requiresAction" to paymentData.requiresAction
+                                    )
+
+                                    result.success(resultMap)
+                                },
+                                onFailure = { error ->
+                                    Timber.e("Payment failed: ${error.message}")
+                                    result.error(
+                                        "PAYMENT_FAILED",
+                                        error.message ?: "Unknown error",
+                                        null
+                                    )
+                                }
+                            )
+                        } catch (e: Exception) {
+                            Timber.e(e, "Payment exception")
+                            result.error("PAYMENT_ERROR", e.message ?: "Unknown error", null)
+                        }
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+    } // <-- This closing brace was missing!
 
     fun setUserSession(email: String, userId: String, token: String) {
         userSession = mapOf(
@@ -39,9 +110,7 @@ object ChannelManager {
             "token" to token
         )
         Timber.d("User session set: $email, $userId")
-
-        // Immediately notify Flutter if MethodChannel is ready
-        methodChannel?.invokeMethod("updateUserSession", userSession)
+        dashboardChannel?.invokeMethod("updateUserSession", userSession)
     }
 
     fun getUserSession(): Map<String, String>? = userSession
