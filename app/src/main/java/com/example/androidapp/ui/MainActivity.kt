@@ -7,6 +7,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.androidapp.ChannelManager
 import com.example.androidapp.databinding.ActivityMainBinding
+import com.example.androidapp.data.remote.RetrofitClient
+import com.example.androidapp.data.repository.AdyenPaymentRepository
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -32,6 +34,11 @@ class MainActivity : AppCompatActivity() {
         // Initialize FlutterEngine
         flutterEngine = FlutterEngine(this)
         flutterEngine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
+
+        // Initialize Payment Repository
+        val apiService = RetrofitClient.getApiService()
+        val paymentRepository = AdyenPaymentRepository(apiService)
+        ChannelManager.setPaymentRepository(paymentRepository)
 
         // Setup MethodChannel
         ChannelManager.setup(flutterEngine)
