@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_module/features/bluetooth/presentation/cubit/bluetooth_cubit.dart';
 import 'package:flutter_module/features/bluetooth/domain/entities/bluetooth_device.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart';
 
 class BluetoothPage extends StatefulWidget {
   const BluetoothPage({Key? key}) : super(key: key);
@@ -15,7 +16,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
   @override
   void initState() {
     super.initState();
-    // Use cubit methods instead of bloc events
     final cubit = context.read<BluetoothCubit>();
     cubit.checkBluetoothStatus();
     cubit.checkPermissions();
@@ -51,10 +51,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
         listener: (context, state) {
           if (state is BluetoothError) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: Colors.red,
-              ),
+              SnackBar(content: Text(state.message), backgroundColor: Colors.red),
             );
           } else if (state is DeviceConnected) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -70,39 +67,107 @@ class _BluetoothPageState extends State<BluetoothPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final showPermissionWarning = state is PermissionsChecked && !state.hasPermissions;
+          final showPermissionWarning =
+              state is PermissionsChecked && !state.hasPermissions;
 
           return Column(
             children: [
+              // PERMISSION BANNER
               if (showPermissionWarning)
                 MaterialBanner(
-                  content: const Text('Bluetooth permissions are missing. The host app must grant them for reliable scanning.'),
+                  content: const Text(
+                    'Bluetooth permissions are missing. Please grant them.',
+                  ),
                   actions: [
                     TextButton(
                       onPressed: () async {
-                        // Request necessary permissions at runtime
-                        final Map<Permission, PermissionStatus> statuses = await [
+                        final statuses = await [
                           Permission.bluetooth,
                           Permission.bluetoothScan,
                           Permission.bluetoothConnect,
                           Permission.locationWhenInUse,
                         ].request();
 
-                        // If any permission is granted, try scanning
-                        final anyGranted = statuses.values.any((s) => s.isGranted);
+                        final anyGranted =
+                        statuses.values.any((s) => s.isGranted);
+
                         if (anyGranted) {
+                          // Update permissions state
+                          await context.read<BluetoothCubit>().checkPermissions();
+                          // Try scanning again
                           context.read<BluetoothCubit>().startScan();
                         } else {
+                          if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Permissions not granted')),
+                            const SnackBar(
+                              content: Text('Permissions not granted'),
+                            ),
                           );
                         }
                       },
-                      child: const Text('Try Scan'),
+                      child: const Text('Grant Permissions'),
                     ),
                   ],
                 ),
+
               _buildConnectionStatus(),
+
+              // DIAGNOSTIC BUTTON
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final cubit = context.read<BluetoothCubit>();
+                    try {
+                      final diag = await cubit.runDiagnostics();
+                      debugPrint('BT_DIAG native diagnostic => $diag');
+
+                      final hasPerm = await cubit.repository.hasPermissions();
+                      debugPrint('BT_DIAG hasPermissions => $hasPerm');
+
+                      final enabled = await cubit.repository.isBluetoothEnabled();
+                      debugPrint('BT_DIAG isBluetoothEnabled => $enabled');
+
+                      final sub = cubit.repository
+                          .startScan(duration: 10000)
+                          .listen((devices) {
+                        debugPrint(
+                            'BT_STREAM found ${devices.length}: $devices');
+                      });
+
+                      await Future.delayed(const Duration(seconds: 12));
+                      await sub.cancel();
+
+                      if (!mounted) return;
+                      await showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('BLE Diagnostic'),
+                          content: Text(
+                            'diag: $diag\n'
+                                'hasPermissions: $hasPerm\n'
+                                'isEnabled: $enabled',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    } catch (e, st) {
+                      debugPrint('BT debug failed: $e\n$st');
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Diagnostics failed: $e')),
+                      );
+                    }
+                  },
+                  child: const Text('Run BLE Diagnostic'),
+                ),
+              ),
+
               _buildScanButton(),
               Expanded(child: _buildDeviceList(state)),
             ],
@@ -131,9 +196,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () {
-                    context.read<BluetoothCubit>().disconnect();
-                  },
+                  onPressed: () =>
+                      context.read<BluetoothCubit>().disconnect(),
                 ),
               ],
             ),
@@ -152,11 +216,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
         return Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton.icon(
-            onPressed: isScanning
-                ? null
-                : () {
-                    context.read<BluetoothCubit>().startScan();
-                  },
+            onPressed:
+            isScanning ? null : () => context.read<BluetoothCubit>().startScan(),
             icon: Icon(isScanning ? Icons.hourglass_empty : Icons.search),
             label: Text(isScanning ? 'Scanning...' : 'Scan for Devices'),
             style: ElevatedButton.styleFrom(
@@ -191,10 +252,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
       return ListView.builder(
         itemCount: state.devices.length,
-        itemBuilder: (context, index) {
-          final device = state.devices[index];
-          return _buildDeviceItem(device);
-        },
+        itemBuilder: (_, index) =>
+            _buildDeviceItem(state.devices[index]),
       );
     }
 
@@ -225,11 +284,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
             Text(device.address),
             Row(
               children: [
-                Icon(
-                  Icons.signal_cellular_alt,
-                  size: 16,
-                  color: _getSignalColor(device.rssi),
-                ),
+                Icon(Icons.signal_cellular_alt,
+                    size: 16, color: _getSignalColor(device.rssi)),
                 const SizedBox(width: 4),
                 Text('RSSI: ${device.rssi} dBm'),
               ],
@@ -238,17 +294,16 @@ class _BluetoothPageState extends State<BluetoothPage> {
         ),
         trailing: device.isConnected
             ? TextButton(
-                onPressed: () {
-                  context.read<BluetoothCubit>().disconnect();
-                },
-                child: const Text('Disconnect'),
-              )
+          onPressed: () =>
+              context.read<BluetoothCubit>().disconnect(),
+          child: const Text('Disconnect'),
+        )
             : ElevatedButton(
-                onPressed: () {
-                  context.read<BluetoothCubit>().connectToDevice(device.address);
-                },
-                child: const Text('Connect'),
-              ),
+          onPressed: () => context
+              .read<BluetoothCubit>()
+              .connectToDevice(device.address),
+          child: const Text('Connect'),
+        ),
       ),
     );
   }

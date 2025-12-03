@@ -10,7 +10,7 @@ part 'bluetooth_state.dart';
 class BluetoothCubit extends Cubit<BluetoothState> {
   final BluetoothRepository repository;
 
-  StreamSubscription? _scanSubscription;
+  StreamSubscription<List<BluetoothDevice>>? _scanSubscription;
   StreamSubscription? _connectionSubscription;
   StreamSubscription? _statusSubscription;
 
@@ -66,18 +66,30 @@ class BluetoothCubit extends Cubit<BluetoothState> {
   Future<void> startScan({int duration = 10000}) async {
     emit(ScanningDevices());
 
+    // Cancel any existing subscription first
     await _scanSubscription?.cancel();
 
+    // Listen to repository scan stream and handle data/errors/done properly
     _scanSubscription = repository.startScan(duration: duration).listen(
-          (devices) {
-            // dataSource streams concrete device lists; emit directly
-            emit(DevicesScanned(devices));
-          },
+      (devices) {
+        // dataSource streams concrete device lists; emit directly
+        emit(DevicesScanned(devices));
+      },
+      onError: (error) {
+        // Surface errors to UI and stop scanning state
+        emit(BluetoothError(error?.toString() ?? 'Unknown scan error'));
+        emit(ScanStopped());
+      },
+      onDone: () {
+        // Scanning finished (native timed out or completed)
+        emit(ScanStopped());
+      },
     );
   }
 
   Future<void> stopScan() async {
     await _scanSubscription?.cancel();
+    _scanSubscription = null;
     await repository.stopScan();
     emit(ScanStopped());
   }
@@ -132,6 +144,15 @@ class BluetoothCubit extends Cubit<BluetoothState> {
       emit(PairedDevicesLoaded(devices));
     } catch (e) {
       emit(BluetoothError(e.toString()));
+    }
+  }
+
+  /// Run quick native diagnostics and return the map (or null on failure).
+  Future<Map<String, dynamic>?> runDiagnostics() async {
+    try {
+      return await repository.diagnosticGetState();
+    } catch (e) {
+      return null;
     }
   }
 
