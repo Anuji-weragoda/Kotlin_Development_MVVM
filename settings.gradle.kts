@@ -28,11 +28,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "AndroidApp"
 include(":app")
-include(":flutter_module")
-
-// Make sure the path is correct
-project(":flutter_module").projectDir = file("flutter_module")
 
 // Apply Flutter Gradle script
 val flutterModule = file("flutter_module/.android/include_flutter.groovy")
-apply(from = flutterModule)
+if (flutterModule.exists()) {
+    apply(from = flutterModule)
+} else {
+    println("WARNING: Flutter module include_flutter.groovy not found at $flutterModule")
+}

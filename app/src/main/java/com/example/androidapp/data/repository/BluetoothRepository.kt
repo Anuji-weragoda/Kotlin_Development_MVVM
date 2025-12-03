@@ -73,6 +73,8 @@ class BluetoothRepository(
             ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) ==
                     PackageManager.PERMISSION_GRANTED &&
                     ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) ==
+                    PackageManager.PERMISSION_GRANTED &&
+                    ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
                     PackageManager.PERMISSION_GRANTED
         } else {
             ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) ==
@@ -90,6 +92,7 @@ class BluetoothRepository(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_SCAN)
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_CONNECT)
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH)
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_ADMIN)
@@ -100,6 +103,8 @@ class BluetoothRepository(
 
     @SuppressLint("MissingPermission")
     fun startScan(durationMs: Long = 10000): Flow<List<BluetoothDevice>> = callbackFlow {
+        // TRACE: entry point for diagnostics
+        android.util.Log.d("BluetoothRepository", "TRACE startScan entry: durationMs=$durationMs")
         // Validate preconditions: permissions and Bluetooth availability
         val missing = getMissingPermissions()
         if (missing.isNotEmpty()) {
@@ -198,9 +203,17 @@ class BluetoothRepository(
         }
 
         // Send final list and update internal state
-        _discoveredDevices.value = devices.values.toList()
-        val finalSend = trySend(devices.values.toList())
-        android.util.Log.d("BluetoothRepository", "final trySend success=${finalSend.isSuccess}")
+        // Also include system paired devices to ensure users see paired devices
+        val pairedDevices = getSystemPairedDevices()
+        val allDevices = mutableListOf<BluetoothDevice>()
+        allDevices.addAll(devices.values)
+        allDevices.addAll(pairedDevices.filter { paired ->
+            !devices.containsKey(paired.address)
+        })
+
+        _discoveredDevices.value = allDevices
+        val finalSend = trySend(allDevices)
+        android.util.Log.d("BluetoothRepository", "final trySend: scanned=${devices.size}, paired=${pairedDevices.size}, total=${allDevices.size}, success=${finalSend.isSuccess}")
         if (!finalSend.isSuccess) {
             android.util.Log.w("BluetoothRepository", "final trySend failed: $finalSend")
         }
@@ -323,5 +336,24 @@ class BluetoothRepository(
 
     fun getPairedDevices(): List<BluetoothDevice> {
         return preferences.getPairedDevices()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun getSystemPairedDevices(): List<BluetoothDevice> {
+        // Get actual paired devices from the system
+        return try {
+            bluetoothAdapter?.bondedDevices?.map { device ->
+                com.example.androidapp.data.model.BluetoothDevice(
+                    name = device.name,
+                    address = device.address,
+                    rssi = 0,
+                    deviceType = DeviceType.CLASSIC,
+                    isConnected = device.bondState == android.bluetooth.BluetoothDevice.BOND_BONDED
+                )
+            } ?: emptyList()
+        } catch (e: Exception) {
+            android.util.Log.w("BluetoothRepository", "getSystemPairedDevices error: ${e.message}")
+            emptyList()
+        }
     }
 }

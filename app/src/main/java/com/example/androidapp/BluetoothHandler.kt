@@ -11,6 +11,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.catch
 import java.util.*
 
 private const val REQUEST_BT_PERMISSIONS = 9876
@@ -59,11 +60,14 @@ class BluetoothHandler(
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                         perms.add(Manifest.permission.BLUETOOTH_SCAN)
                         perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+                        // Location is still needed for accurate BLE scanning even on Android 12+
+                        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
                     } else {
                         perms.add(Manifest.permission.BLUETOOTH)
                         perms.add(Manifest.permission.BLUETOOTH_ADMIN)
                         perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
                     }
+                    android.util.Log.d("BluetoothHandler", "Requesting permissions: $perms")
                     ActivityCompat.requestPermissions(activity, perms.toTypedArray(), REQUEST_BT_PERMISSIONS)
                     result.success(null)
                 }
@@ -79,14 +83,26 @@ class BluetoothHandler(
 
                 // Quick pre-check so Flutter gets immediate feedback if permissions/Bluetooth are missing
                 val missing = repository.getMissingPermissions()
+                android.util.Log.d("BluetoothHandler", "startScan pre-check missing permissions: $missing")
                 if (missing.isNotEmpty()) {
                     android.util.Log.w("BluetoothHandler", "startScan: missing permissions before starting scan: $missing")
+                    // Send error back to Flutter as well as reply via result
+                    try {
+                        channel.invokeMethod("onScanError", mapOf("code" to "MISSING_PERMISSIONS", "message" to "Missing permissions: $missing"))
+                    } catch (t: Throwable) {
+                        android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                    }
                     result.error("MISSING_PERMISSIONS", "Missing permissions: $missing", null)
                     return
                 }
 
                 if (!repository.isBluetoothEnabled()) {
                     android.util.Log.w("BluetoothHandler", "startScan: Bluetooth is disabled")
+                    try {
+                        channel.invokeMethod("onScanError", mapOf("code" to "BLUETOOTH_DISABLED", "message" to "Bluetooth is disabled"))
+                    } catch (t: Throwable) {
+                        android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                    }
                     result.error("BLUETOOTH_DISABLED", "Bluetooth is disabled", null)
                     return
                 }
@@ -185,37 +201,65 @@ class BluetoothHandler(
         // the channel.invokeMethod("onDevicesFound", ...) from the coroutine below.
         scope.launch {
             try {
-                repository.startScan(duration).collectLatest { devices ->
-                    val devicesList = devices.map { device ->
-                        mapOf(
-                            "name" to device.name,
-                            "address" to device.address,
-                            "rssi" to device.rssi,
-                            "isConnected" to device.isConnected,
-                            "deviceType" to (device.deviceType?.name ?: "UNKNOWN"),
-                            "services" to (device.services ?: emptyList<String>())
-                        )
-                    }
+                // Use timeout of duration + 2 seconds to ensure scan completes
+                val timeoutMs = duration + 2000
+                withTimeoutOrNull(timeoutMs) {
+                    repository.startScan(duration)
+                        .catch { e ->
+                            // Forward repository errors back to Flutter for visibility
+                            android.util.Log.e("BluetoothHandler", "repository.startScan flow error: ${e.message}")
+                            try {
+                                channel.invokeMethod("onScanError", mapOf("code" to "SCAN_FAILED", "message" to (e.message ?: "unknown")))
+                            } catch (t: Throwable) {
+                                android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                            }
+                            // Rethrow to exit collection
+                            throw e
+                        }
+                        .collectLatest { devices ->
+                            val devicesList = devices.map { device ->
+                                mapOf(
+                                    "name" to device.name,
+                                    "address" to device.address,
+                                    "rssi" to device.rssi,
+                                    "isConnected" to device.isConnected,
+                                    "deviceType" to (device.deviceType?.name ?: "UNKNOWN"),
+                                    "services" to (device.services ?: emptyList<String>())
+                                )
+                            }
 
-                    // Log for debugging
-                    android.util.Log.d("BluetoothHandler", "Invoking onDevicesFound with ${devicesList.size} devices")
+                            // Log for debugging
+                            android.util.Log.d("BluetoothHandler", "Invoking onDevicesFound with ${devicesList.size} devices")
 
-                    // Dump the full devicesList content for debugging (shows the exact map/list sent to Flutter)
+                            // Dump the full devicesList content for debugging (shows the exact map/list sent to Flutter)
+                            try {
+                                android.util.Log.d("BluetoothHandler", "devicesList payload: ${devicesList}")
+                            } catch (logEx: Exception) {
+                                android.util.Log.e("BluetoothHandler", "Failed to stringify devicesList: ${logEx.message}")
+                            }
+
+                            try {
+                                channel.invokeMethod("onDevicesFound", devicesList)
+                            } catch (invokeEx: Exception) {
+                                android.util.Log.e("BluetoothHandler", "invokeMethod failed: ${invokeEx.message}", invokeEx)
+                            }
+                        }
+                } ?: run {
+                    android.util.Log.w("BluetoothHandler", "Bluetooth scan timed out after duration")
                     try {
-                        android.util.Log.d("BluetoothHandler", "devicesList payload: ${devicesList}")
-                    } catch (logEx: Exception) {
-                        android.util.Log.e("BluetoothHandler", "Failed to stringify devicesList: ${logEx.message}")
-                    }
-
-                    try {
-                        channel.invokeMethod("onDevicesFound", devicesList)
-                    } catch (invokeEx: Exception) {
-                        android.util.Log.e("BluetoothHandler", "invokeMethod failed: ${invokeEx.message}")
+                        channel.invokeMethod("onDevicesFound", emptyList<Map<String, Any>>())
+                    } catch (t: Throwable) {
+                        android.util.Log.w("BluetoothHandler", "invokeMethod onDevicesFound(empty) failed: ${t.message}")
                     }
                 }
             } catch (e: Exception) {
                 // If collection fails we can't use result (it was already acknowledged)
                 android.util.Log.e("BluetoothHandler", "startScanning failed in coroutine: ${e.message}")
+                try {
+                    channel.invokeMethod("onScanError", mapOf("code" to "SCAN_EXCEPTION", "message" to (e.message ?: "unknown")))
+                } catch (t: Throwable) {
+                    android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_module/core/constants/wifi_constants.dart';
 import '../models/wifi_network_model.dart';
 
@@ -31,15 +32,26 @@ class WifiDataSourceImpl implements WifiDataSource {
   StreamController.broadcast();
   final StreamController<WifiConnectionStatusModel> _connectionController =
   StreamController.broadcast();
+  // Stream to receive permission updates from native side
+  final StreamController<bool> _permissionController = StreamController<bool>.broadcast();
+  bool _callbacksRegistered = false;
 
   WifiDataSourceImpl({MethodChannel? channel})
       : _channel = channel ?? const MethodChannel(WifiConstants.channelName) {
     _setupCallbacks();
+    // Debug: confirm handler registration
+    debugPrint('WifiDataSourceImpl: MethodChannel initialized for ${WifiConstants.channelName}');
+    // Notify native side that Dart client is ready to receive callbacks. The Android
+    // WifiHandler waits for a 'clientReady' handshake before invoking callback methods
+    // (it buffers networks until this is received). Sending this ensures callbacks are delivered.
+    _notifyClientReady();
   }
 
   void _setupCallbacks() {
-    _channel.setMethodCallHandler((call) async {
-      switch (call.method) {
+    if (_callbacksRegistered) return;
+     _channel.setMethodCallHandler((call) async {
+       debugPrint('WifiDataSourceImpl: received platform call: ${call.method} with args=${call.arguments}');
+       switch (call.method) {
         case WifiConstants.callbackOnNetworksFound:
           final List<dynamic> networksList = call.arguments;
           final networks = networksList
@@ -47,6 +59,7 @@ class WifiDataSourceImpl implements WifiDataSource {
               WifiNetworkModel.fromJson(Map<String, dynamic>.from(e)))
               .toList();
           _networksController.add(networks);
+
           break;
 
         case WifiConstants.callbackOnConnectionStatusChanged:
@@ -57,6 +70,19 @@ class WifiDataSourceImpl implements WifiDataSource {
           break;
       }
     });
+    _callbacksRegistered = true;
+  }
+
+
+  Future<void> _notifyClientReady() async {
+    try {
+      await _channel.invokeMethod('clientReady');
+      debugPrint('WifiDataSourceImpl: sent clientReady handshake to native');
+    } on PlatformException catch (e) {
+      debugPrint('WifiDataSourceImpl: clientReady handshake failed: ${e.message}');
+    } catch (t) {
+      debugPrint('WifiDataSourceImpl: unexpected error sending clientReady: $t');
+    }
   }
 
   @override
@@ -101,8 +127,47 @@ class WifiDataSourceImpl implements WifiDataSource {
 
   @override
   Stream<List<WifiNetworkModel>> scanNetworks() {
-    _channel.invokeMethod(WifiConstants.methodScanNetworks);
+    // Ensure callbacks are registered before we request a native scan
+    if (!_callbacksRegistered) _setupCallbacks();
+    debugPrint('WifiDataSourceImpl: invoking native scanNetworks');
+
+    // Start the native scan asynchronously and log the response. We await the
+    // clientReady handshake before requesting a scan to reduce the chance that
+    // native events are emitted before Dart is ready to receive them.
+    () async {
+      try {
+        await _notifyClientReady();
+        final dynamic result = await _channel
+            .invokeMethod<dynamic>(WifiConstants.methodScanNetworks)
+            .timeout(const Duration(seconds: 10));
+        debugPrint('WifiDataSourceImpl: startScan invoke result: $result');
+      } on PlatformException catch (e) {
+        debugPrint('WifiDataSourceImpl: startScan PlatformException: ${e.code} ${e.message}');
+        try {
+          _networksController.addError(_handleException(e));
+        } catch (_) {}
+      } on TimeoutException {
+        debugPrint('WifiDataSourceImpl: startScan timed out');
+      } catch (e, st) {
+        debugPrint('WifiDataSourceImpl: startScan unexpected error: $e\n$st');
+      }
+    }();
+
     return _networksController.stream;
+  }
+
+  /// Diagnostic helper: ask the native side for internal handler state (useful
+  /// to verify whether native received `clientReady`, whether scanning is active,
+  /// or why no devices were emitted). This method is optional on the native side.
+  Future<Map<String, dynamic>?> diagnosticGetState() async {
+    try {
+      final Map<dynamic, dynamic>? result =
+          await _channel.invokeMethod<Map<dynamic, dynamic>>('diagnosticGetState');
+      return result == null ? null : Map<String, dynamic>.from(result);
+    } on PlatformException catch (e) {
+      debugPrint('WifiDataSourceImpl: diagnosticGetState failed: ${e.message}');
+      return null;
+    }
   }
 
   @override
@@ -231,5 +296,6 @@ class WifiDataSourceImpl implements WifiDataSource {
   void dispose() {
     _networksController.close();
     _connectionController.close();
+    if (!_permissionController.isClosed) _permissionController.close();
   }
 }

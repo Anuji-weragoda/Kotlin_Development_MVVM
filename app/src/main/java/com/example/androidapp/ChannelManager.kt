@@ -27,6 +27,7 @@ object ChannelManager {
 
     fun setup(engine: FlutterEngine, context: Context) {
         flutterEngine = engine
+        Timber.d("ChannelManager.setup called; engineHash=%s, context=%s", engine.hashCode(), context.javaClass.simpleName)
         val appContext = context.applicationContext // Safe context
 
         // --- Dashboard channel ---
