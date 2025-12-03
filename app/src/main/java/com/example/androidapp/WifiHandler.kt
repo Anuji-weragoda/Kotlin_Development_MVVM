@@ -1,6 +1,10 @@
 package com.example.androidapp
 
+import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
 import com.example.androidapp.data.local.WifiPreferences
 import com.example.androidapp.data.model.SavedWifiNetwork
 import com.example.androidapp.data.repository.WifiRepository
@@ -8,6 +12,9 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import timber.log.Timber
+
+private const val REQUEST_WIFI_PERMISSIONS = 8765
 
 class WifiHandler(
     private val context: Context,
@@ -20,6 +27,7 @@ class WifiHandler(
 
     init {
         channel.setMethodCallHandler(this)
+        Timber.d("WifiHandler registered on channel")
         observeConnectionStatus()
     }
 
@@ -39,8 +47,27 @@ class WifiHandler(
                 result.success(null)
             }
 
-            "hasPermissions" -> {
+            // Accept both 'hasWifiPermissions' (Dart constant) and legacy 'hasPermissions'
+            "hasWifiPermissions", "hasPermissions" -> {
                 result.success(repository.hasPermissions())
+            }
+
+            "requestPermissions" -> {
+                // Try to request the appropriate permissions from the Activity if available.
+                val activity = if (context is Activity) context else null
+                if (activity == null) {
+                    result.error("NO_ACTIVITY", "Cannot request permissions without Activity", null)
+                } else {
+                    val perms = mutableListOf<String>()
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        perms.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                    } else {
+                        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                    ActivityCompat.requestPermissions(activity, perms.toTypedArray(), REQUEST_WIFI_PERMISSIONS)
+                    result.success(null)
+                }
             }
 
             "scanNetworks" -> {
@@ -191,6 +218,18 @@ class WifiHandler(
                 )
                 channel.invokeMethod("onConnectionStatusChanged", statusMap)
             }
+        }
+    }
+
+    // Called by Activity/ChannelManager when permission results arrive
+    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (requestCode != REQUEST_WIFI_PERMISSIONS) return
+
+        try {
+            val hasPerms = repository.hasPermissions()
+            channel.invokeMethod("onPermissionResult", mapOf("hasPermissions" to hasPerms))
+        } catch (t: Throwable) {
+            Timber.w(t, "WifiHandler: onRequestPermissionsResult failed")
         }
     }
 

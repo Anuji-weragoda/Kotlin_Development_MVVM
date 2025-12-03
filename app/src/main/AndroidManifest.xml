@@ -9,7 +9,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Android 13+ permission for scanning nearby Wi‑Fi devices (optional; keep location for broader compatibility) -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
 
 
     <application

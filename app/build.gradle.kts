@@ -25,7 +25,8 @@ android {
         buildConfigField("String", "COGNITO_REGION", "\"eu-north-1\"")
 
         // Backend API Configuration
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
+        //buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
+        buildConfigField("String", "BASE_URL", "\"http://192.168.1.12:8081/api/v1/\"")
     }
 
     buildFeatures {

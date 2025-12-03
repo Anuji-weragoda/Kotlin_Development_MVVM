@@ -1,5 +1,6 @@
 import '../../domain/entities/wifi_network.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../../domain/repository/wifi_repository.dart';
 import '../datasources/wifi_datasource.dart';
 import '../models/wifi_network_model.dart';
@@ -47,8 +48,16 @@ class WifiRepositoryImpl implements WifiRepository {
 
   @override
   Stream<List<WifiNetwork>> scanNetworks() async* {
-    // In debug mode (e.g. emulator) emit a short mock list so the UI can be tested
-    if (kDebugMode) {
+    bool useMock = false;
+
+    // Check permissions first
+    if (!await dataSource.hasPermissions()) {
+      debugPrint('No WiFi permissions, fallback to mock data.');
+      useMock = true;
+    }
+
+    // If permissions are missing, emit a quick mock placeholder so UI can show something
+    if (useMock) {
       await Future.delayed(const Duration(milliseconds: 300));
       yield [
         const WifiNetwork(
@@ -71,22 +80,49 @@ class WifiRepositoryImpl implements WifiRepository {
           isSaved: true,
           isConnected: false,
         ),
-        const WifiNetwork(
-          ssid: 'Guest',
-          bssid: 'CC:DD:EE:FF:00:11',
-          capabilities: '[OPEN][ESS]',
-          level: -78,
-          frequency: 2462,
-          isSecured: false,
-          isSaved: false,
-          isConnected: false,
-        ),
       ];
-      // Continue streaming native results afterwards (if any)
     }
 
-    await for (final models in dataSource.scanNetworks()) {
-      yield models.map((m) => m.toEntity()).toList();
+    // Always attempt the real scan; if the platform plugin is missing or the scan fails,
+    // fall back to mock/fallback only when permissions were NOT the reason for mock.
+    try {
+      await for (final models in dataSource.scanNetworks()) {
+        final realNetworks = models.map((m) => m.toEntity()).toList();
+        // Yield whatever the platform returns (even empty lists) so UI can react.
+        yield realNetworks;
+      }
+    } on MissingPluginException catch (e) {
+      debugPrint('Platform plugin missing for WiFi scanning: $e');
+      if (!useMock) {
+        yield [
+          const WifiNetwork(
+            ssid: 'MockWiFi-Fallback',
+            bssid: 'AA:BB:CC:DD:EE:FF',
+            capabilities: '[WPA2-PSK][ESS]',
+            level: -70,
+            frequency: 2427,
+            isSecured: true,
+            isSaved: false,
+            isConnected: false,
+          ),
+        ];
+      }
+    } catch (e) {
+      debugPrint('Scan failed, emitting mock data (if needed): $e');
+      if (!useMock) {
+        yield [
+          const WifiNetwork(
+            ssid: 'MockWiFi-Fallback',
+            bssid: 'AA:BB:CC:DD:EE:FF',
+            capabilities: '[WPA2-PSK][ESS]',
+            level: -70,
+            frequency: 2427,
+            isSecured: true,
+            isSaved: false,
+            isConnected: false,
+          ),
+        ];
+      }
     }
   }
 
@@ -148,5 +184,6 @@ class WifiRepositoryImpl implements WifiRepository {
   }
 
   @override
-  Stream<WifiConnectionStatus> get connectionStatusStream => dataSource.connectionStatusStream.map((m) => m.toEntity());
+  Stream<WifiConnectionStatus> get connectionStatusStream =>
+      dataSource.connectionStatusStream.map((m) => m.toEntity());
 }

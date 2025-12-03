@@ -26,6 +26,7 @@
             <option value="$PROJECT_DIR$/flutter_module/.android/Flutter" />
             <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/flutter_secure_storage-9.2.4/android" />
             <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/path_provider_android-2.2.22/android" />
+            <option value="$USER_HOME$/AppData/Local/Pub/Cache/hosted/pub.dev/permission_handler_android-10.3.6/android" />
             <option value="$PROJECT_DIR$/../../../../flutter/packages/flutter_tools/gradle" />
           </set>
         </option>
