@@ -154,4 +154,14 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
           message: status.message,
         ),
       );
+
+  @override
+  Future<Map<String, dynamic>?> diagnosticGetState() async {
+    try {
+      return await dataSource.diagnosticGetState();
+    } catch (e) {
+      // Return null if diagnostics fail
+      return null;
+    }
+  }
 }

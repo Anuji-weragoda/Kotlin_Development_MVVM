@@ -26,6 +26,9 @@ abstract class BluetoothDataSource {
   });
   Future<List<BluetoothDeviceModel>> getPairedDevices();
   Stream<ConnectionStatusModel> get connectionStatusStream;
+
+  // Diagnostic helper to query native state (scanner availability, missing permissions)
+  Future<Map<String, dynamic>?> diagnosticGetState();
 }
 
 class BluetoothDataSourceImpl implements BluetoothDataSource {
@@ -274,6 +277,19 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   @override
   Stream<ConnectionStatusModel> get connectionStatusStream =>
        _connectionController.stream;
+
+  @override
+  Future<Map<String, dynamic>?> diagnosticGetState() async {
+    try {
+      final res = await _invokeWithTimeout<Map<dynamic, dynamic>>('diagnosticGetState');
+      if (res == null) return null;
+      // Map<dynamic,dynamic> -> Map<String,dynamic>
+      return Map<String, dynamic>.from(res);
+    } catch (e) {
+      _log('diagnosticGetState failed: $e');
+      return null;
+    }
+  }
 
    Exception _handleException(PlatformException e) {
      switch (e.code) {

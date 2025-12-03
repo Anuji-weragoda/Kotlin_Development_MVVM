@@ -31,6 +31,16 @@ class WifiHandler(
     // Buffer to hold last networks payload until Dart is ready
     private val pendingNetworks = mutableListOf<List<Map<String, Any>>>()
 
+    // Diagnostics - track last scan/start status so Dart can query it
+    @Volatile
+    private var lastScanStarted: Boolean = false
+    @Volatile
+    private var lastStartScanReturned: Boolean? = null
+    @Volatile
+    private var lastCachedResultsCount: Int = -1
+    @Volatile
+    private var lastOnReceiveResultsCount: Int = -1
+
     init {
         channel.setMethodCallHandler(this)
         Timber.d("WifiHandler registered on channel")
@@ -57,6 +67,24 @@ class WifiHandler(
                 pendingNetworks.clear()
             }
             result.success(null)
+            return
+        }
+
+        // Diagnostic: allow Dart to query internal handler state
+        if (call.method == "diagnosticGetState") {
+            try {
+                val state = mapOf(
+                    "dartClientReady" to dartClientReady,
+                    "lastScanStarted" to lastScanStarted,
+                    "lastStartScanReturned" to lastStartScanReturned,
+                    "lastCachedResultsCount" to lastCachedResultsCount,
+                    "lastOnReceiveResultsCount" to lastOnReceiveResultsCount
+                )
+                result.success(state)
+            } catch (t: Throwable) {
+                Timber.w(t, "WifiHandler: diagnosticGetState failed")
+                result.success(null)
+            }
             return
         }
 
@@ -184,11 +212,15 @@ class WifiHandler(
         scope.launch {
             try {
                 Timber.d("scanNetworks() started - requesting Wi-Fi network scan")
+                // Mark diagnostics: a scan is starting
+                lastScanStarted = true
                 withTimeoutOrNull(10000L) {
                     repository.scanNetworks().collectLatest { networks ->
-                        Timber.d("scanNetworks() received ${networks.size} networks")
+                        Timber.d("scanNetworks() received ${'$'}{networks.size} networks")
+                        // Update diagnostics when receiver yields results
+                        lastOnReceiveResultsCount = networks.size
                         val networksList = networks.map { network ->
-                            Timber.d("  - Found network: ${network.ssid} (level=${network.level}, secured=${network.isSecured})")
+                            Timber.d("  - Found network: ${'$'}{network.ssid} (level=${'$'}{network.level}, secured=${'$'}{network.isSecured})")
                             mapOf(
                                 "ssid" to network.ssid,
                                 "bssid" to network.bssid,
@@ -208,7 +240,7 @@ class WifiHandler(
                 }
                 result.success(null)
             } catch (e: Exception) {
-                Timber.e(e, "scanNetworks() error: ${e.message}")
+                Timber.e(e, "scanNetworks() error: ${'$'}{e.message}")
                 result.error("SCAN_ERROR", e.message, null)
             }
         }
@@ -281,10 +313,10 @@ class WifiHandler(
             try {
                 channel.invokeMethod("onNetworksFound", networksList)
             } catch (invokeEx: Exception) {
-                Timber.e(invokeEx, "WifiHandler: invokeMethod failed when sending networks: ${invokeEx.message}")
+                Timber.e(invokeEx, "WifiHandler: invokeMethod failed when sending networks: ${'$'}{invokeEx.message}")
             }
         } else {
-            Timber.d("WifiHandler: Dart client not ready - buffering ${networksList.size} networks")
+            Timber.d("WifiHandler: Dart client not ready - buffering ${'$'}{networksList.size} networks")
             pendingNetworks.clear()
             pendingNetworks.add(networksList)
         }

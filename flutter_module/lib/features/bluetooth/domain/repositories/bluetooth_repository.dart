@@ -28,4 +28,7 @@ abstract class BluetoothRepository {
 
   Future<List<BluetoothDevice>> getPairedDevices();
   Stream<ConnectionStatus> get connectionStatusStream;
+
+  // Diagnostic helper: query native handler for scanner availability and missing permissions
+  Future<Map<String, dynamic>?> diagnosticGetState();
 }

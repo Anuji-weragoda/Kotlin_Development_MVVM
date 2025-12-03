@@ -32,6 +32,23 @@ class BluetoothHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            // Diagnostic call to query scanner & permissions status
+            "diagnosticGetState" -> {
+                try {
+                    val missing = repository.getMissingPermissions()
+                    val scannerAvailable = repository.isScannerAvailable()
+                    val state = mapOf(
+                        "scannerAvailable" to scannerAvailable,
+                        "missingPermissions" to missing
+                    )
+                    result.success(state)
+                } catch (t: Throwable) {
+                    android.util.Log.w("BluetoothHandler", "diagnosticGetState failed: ${t.message}")
+                    result.success(null)
+                }
+                return
+            }
+
             "isBluetoothEnabled" -> {
                 result.success(repository.isBluetoothEnabled())
             }
