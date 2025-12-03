@@ -35,6 +35,27 @@ class BluetoothRepository(
     private val _discoveredDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
     val discoveredDevices: StateFlow<List<BluetoothDevice>> = _discoveredDevices.asStateFlow()
 
+    // Track currently active scan so it can be stopped externally
+    @Volatile
+    private var activeScanCallback: ScanCallback? = null
+    @Volatile
+    private var activeScannerRef: BluetoothLeScanner? = null
+
+    // Stop any active scan immediately
+    @SuppressLint("MissingPermission")
+    fun stopScan() {
+        try {
+            activeScannerRef?.stopScan(activeScanCallback)
+            android.util.Log.d("BluetoothRepository", "stopScan: stopped active scanner")
+        } catch (t: Throwable) {
+            android.util.Log.w("BluetoothRepository", "stopScan threw: ${t.message}")
+            // ignore
+        } finally {
+            activeScanCallback = null
+            activeScannerRef = null
+        }
+    }
+
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
 
     @SuppressLint("MissingPermission")
@@ -63,25 +84,84 @@ class BluetoothRepository(
         }
     }
 
+    // Return a list of permissions that are not currently granted (for debugging/requests)
+    fun getMissingPermissions(): List<String> {
+        val missing = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_SCAN)
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH)
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADMIN) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.BLUETOOTH_ADMIN)
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+        return missing
+    }
+
     @SuppressLint("MissingPermission")
     fun startScan(durationMs: Long = 10000): Flow<List<BluetoothDevice>> = callbackFlow {
+        // Validate preconditions: permissions and Bluetooth availability
+        val missing = getMissingPermissions()
+        if (missing.isNotEmpty()) {
+            android.util.Log.w("BluetoothRepository", "startScan: missing permissions: $missing")
+            close(IllegalStateException("Missing permissions: $missing"))
+            return@callbackFlow
+        }
+
+        if (!isBluetoothEnabled()) {
+            android.util.Log.w("BluetoothRepository", "startScan: Bluetooth is disabled")
+            close(IllegalStateException("Bluetooth is disabled"))
+            return@callbackFlow
+        }
+
+        // Re-evaluate scanner at call-time in case adapter state changed
+        val scanner = bluetoothAdapter?.bluetoothLeScanner
+        if (scanner == null) {
+            android.util.Log.e("BluetoothRepository", "startScan: bluetoothLeScanner is null (adapter: $bluetoothAdapter)")
+            close(IllegalStateException("BLE scanner not available"))
+            return@callbackFlow
+        }
+
+        android.util.Log.d("BluetoothRepository", "startScan: scanner available, starting scan for $durationMs ms")
+
         val devices = mutableMapOf<String, BluetoothDevice>()
 
         val scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
                 result?.let {
+                    // Extract advertised service UUIDs if present
+                    val services = it.scanRecord?.serviceUuids?.mapNotNull { pu -> pu?.uuid?.toString() } ?: emptyList()
+
                     val device = BluetoothDevice(
                         name = it.device.name,
                         address = it.device.address,
                         rssi = it.rssi,
-                        deviceType = DeviceType.BLE
+                        deviceType = DeviceType.BLE,
+                        services = services
                     )
+
                     devices[device.address] = device
-                    trySend(devices.values.toList())
+
+                    // Update internal discovered devices state so UI observing this flow sees changes
+                    _discoveredDevices.value = devices.values.toList()
+
+                    // Log discovery for debugging
+                    android.util.Log.d("BluetoothRepository", "onScanResult: addr=${device.address}, name=${device.name}, rssi=${device.rssi}, services=${device.services}")
+
+                    val sendResult = trySend(devices.values.toList())
+                    android.util.Log.d("BluetoothRepository", "trySend called, success=${sendResult.isSuccess}")
+                    if (!sendResult.isSuccess) {
+                        android.util.Log.w("BluetoothRepository", "trySend failed for device list: ${sendResult} ")
+                    } else {
+                        android.util.Log.d("BluetoothRepository", "trySend success, total devices=${devices.size}")
+                    }
+                } ?: run {
+                    android.util.Log.w("BluetoothRepository", "onScanResult: result was null")
                 }
             }
 
             override fun onScanFailed(errorCode: Int) {
+                android.util.Log.e("BluetoothRepository", "onScanFailed: error=$errorCode")
                 close(Exception("Scan failed with error: $errorCode"))
             }
         }
@@ -90,13 +170,57 @@ class BluetoothRepository(
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .build()
 
-        bluetoothLeScanner?.startScan(null, settings, scanCallback)
+        try {
+            // register active scan
+            activeScannerRef = scanner
+            activeScanCallback = scanCallback
 
+            android.util.Log.d("BluetoothRepository", "calling bluetoothLeScanner.startScan(...) with filters=null and settings=$settings")
+            scanner.startScan(null, settings, scanCallback)
+            android.util.Log.d("BluetoothRepository", "startScan: scanner.startScan returned")
+        } catch (se: SecurityException) {
+            android.util.Log.e("BluetoothRepository", "startScan SecurityException: ${se.message}")
+            close(se)
+            return@callbackFlow
+        } catch (t: Throwable) {
+            android.util.Log.e("BluetoothRepository", "startScan failed: ${t.message}")
+            close(t)
+            return@callbackFlow
+        }
+
+        // Run scan for durationMs, then stop and close the flow with final results
         kotlinx.coroutines.delay(durationMs)
-        bluetoothLeScanner?.stopScan(scanCallback)
+        try {
+            android.util.Log.d("BluetoothRepository", "duration elapsed, stopping scanner")
+            scanner.stopScan(scanCallback)
+        } catch (t: Throwable) {
+            android.util.Log.w("BluetoothRepository", "stopScan threw: ${t.message}")
+        }
 
+        // Send final list and update internal state
+        _discoveredDevices.value = devices.values.toList()
+        val finalSend = trySend(devices.values.toList())
+        android.util.Log.d("BluetoothRepository", "final trySend success=${finalSend.isSuccess}")
+        if (!finalSend.isSuccess) {
+            android.util.Log.w("BluetoothRepository", "final trySend failed: $finalSend")
+        }
+
+        // Close the flow to signal completion
+        close()
+
+        // clear active references and stop if caller cancels
         awaitClose {
-            bluetoothLeScanner?.stopScan(scanCallback)
+            android.util.Log.d("BluetoothRepository", "awaitClose called, cleaning up scan callback and scanner reference")
+            try {
+                scanner.stopScan(scanCallback)
+            } catch (t: Throwable) {
+                android.util.Log.w("BluetoothRepository", "awaitClose stopScan threw: ${t.message}")
+            } finally {
+                if (activeScanCallback === scanCallback) {
+                    activeScanCallback = null
+                    activeScannerRef = null
+                }
+            }
         }
     }
 

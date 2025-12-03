@@ -1,4 +1,3 @@
-
 import 'package:get_it/get_it.dart';
 import '../../features/dashboard/data/datasources/dashboard_remote_datasource.dart';
 import '../../features/dashboard/data/repositories/dashboard_repository_impl.dart';
@@ -12,6 +11,7 @@ import '../../features/wifi/data/datasources/wifi_datasource.dart';
 import '../../features/wifi/data/repository/wifi_repository_impl.dart';
 import '../../features/wifi/domain/repository/wifi_repository.dart';
 import '../../features/wifi/presentation/cubit/wifi_cubit.dart';
+import 'package:flutter/foundation.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -43,9 +43,11 @@ Future<void> init() async {
     ),
   );
 
-  // Data Source
   sl.registerLazySingleton<BluetoothDataSource>(
-    () => BluetoothDataSourceImpl(),
+    // Use mock BLE data so the Flutter UI shows deterministic mock devices
+    // during development. Change to `false` to use the native platform
+    // implementation.
+    () => BluetoothDataSourceImpl(useMockData: true),
   );
 
   // WiFi feature registrations

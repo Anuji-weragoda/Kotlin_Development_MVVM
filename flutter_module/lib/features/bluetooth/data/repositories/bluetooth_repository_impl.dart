@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import '../../domain/entities/bluetooth_device.dart';
 import '../../domain/repositories/bluetooth_repository.dart';
 import '../datasources/bluetooth_datasource.dart';
@@ -46,15 +47,27 @@ class BluetoothRepositoryImpl implements BluetoothRepository {
   }
 
   @override
-  Stream<List<BluetoothDevice>> startScan({int duration = 10000}) async* {
-    try {
-      await for (final devices in dataSource.startScan(duration: duration)) {
-        // If dataSource returns models, convert to entity
-        yield devices.map((e) => e is BluetoothDeviceModel ? e.toEntity() : e).toList();
+  Stream<List<BluetoothDevice>> startScan({int duration = 10000}) {
+    // Compose the data source stream: map models to entities and handle errors.
+    final stream = dataSource.startScan(duration: duration)
+        .handleError((error, stackTrace) {
+      // Suppress native TIMEOUT platform errors (they are noisy when native scanning
+      // is implemented as fire-and-forget and doesn't complete). Other errors are
+      // forwarded as stream errors so callers can react.
+      if (error is PlatformException && error.code == 'TIMEOUT') {
+        // Log and swallow the timeout so UI listeners are not crashed by an
+        // exception originating from the native call timeout.
+        // Using print here to avoid adding new imports; repository layer has no
+        // logger by default.
+        print('BluetoothRepositoryImpl.startScan - suppressed TIMEOUT from native startScan');
+        return;
       }
-    } catch (e) {
-      throw Exception('Failed to start scan: $e');
-    }
+      // Re-throw other errors to surface them to stream listeners.
+      throw error;
+    }).map((devices) =>
+            devices.map((e) => e is BluetoothDeviceModel ? e.toEntity() : e).toList());
+
+    return stream;
   }
 
   @override

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -13,6 +14,7 @@ import android.net.NetworkRequest
 import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
 import android.os.Build
+import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.example.androidapp.data.local.WifiPreferences
 import com.example.androidapp.data.model.SavedWifiNetwork
@@ -38,17 +40,49 @@ class WifiRepository(
         MutableStateFlow(WifiConnectionStatus(WifiState.DISCONNECTED, null))
     val connectionStatus: StateFlow<WifiConnectionStatus> = _connectionStatus.asStateFlow()
 
+    // Added tag for diagnostics
+    private val TAG = "WifiRepository"
+
 
     fun hasPermissions(): Boolean {
-        return ActivityCompat.checkSelfPermission(
+        // On Android 13+ prefer the NEARBY_WIFI_DEVICES permission. For older OSes a location
+        // permission (fine or coarse) is required for Wi‑Fi scanning results.
+        val nearby = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            ) == PackageManager.PERMISSION_GRANTED
+        } else false
+
+        val fine = ActivityCompat.checkSelfPermission(
             context,
             Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                        ActivityCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.NEARBY_WIFI_DEVICES
-                        ) == PackageManager.PERMISSION_GRANTED)
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarse = ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // If NEARBY_WIFI_DEVICES is present (Android 13+) accept it; otherwise accept location perms.
+        return nearby || fine || coarse
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        return try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                lm.isLocationEnabled
+            } else {
+                // for older devices, fall back to checking providers
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(
+                    LocationManager.NETWORK_PROVIDER
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "isLocationEnabled: error checking location state: ${e.message}")
+            true
+        }
     }
 
 
@@ -70,27 +104,88 @@ class WifiRepository(
 
 
     fun scanNetworks(): Flow<List<WifiNetwork>> = callbackFlow {
+        Log.d(TAG, "scanNetworks() called. SDK=${Build.VERSION.SDK_INT}, hasPermissions=${hasPermissions()}")
         if (!hasPermissions()) {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+            // Don't close immediately here — the caller/handler should request permissions and
+            // scanning can either retry or fall back to saved networks. Log and continue so
+            // the platform channel can deliver an empty result or saved networks as appropriate.
+            Log.w(TAG, "Missing required runtime permissions for scanning Wi‑Fi — results may be empty until permissions are granted")
+        }
+
+        // On many Android versions, location services must be enabled for Wi‑Fi scanning to return results.
+        val locationOn = isLocationEnabled()
+        Log.d(TAG, "location services enabled=$locationOn")
+
+        if (!locationOn && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // On Android < 12, location being off commonly prevents scan results.
+            Log.w(TAG, "Location services are disabled; scan results may be empty")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+ does not allow active scanning, show saved networks only
-            val savedNetworks = getSavedNetworks().map {
-                WifiNetwork(
-                    ssid = it.ssid,
-                    bssid = "",
-                    capabilities = "",
-                    level = 0,
-                    frequency = 0,
-                    isSecured = true,
-                    isSaved = true
-                )
+            // On Android Q+ active scanning is restricted but still possible for foreground apps
+            // with the proper permissions. Attempt an active scan when permissions exist; if not,
+            // fall back to returning saved networks only.
+            if (!hasPermissions()) {
+                val savedNetworks = getSavedNetworks().map {
+                    WifiNetwork(
+                        ssid = it.ssid,
+                        bssid = "",
+                        capabilities = "",
+                        level = 0,
+                        frequency = 0,
+                        isSecured = true,
+                        isSaved = true
+                    )
+                }
+                trySend(savedNetworks)
+                close()
+            } else {
+                // Use the same broadcast-receiver based scanning approach as legacy devices.
+                val receiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        try {
+                            @Suppress("DEPRECATION")
+                            val results = wifiManager.scanResults
+                            Log.d(TAG, "onReceive: scan results count=${results.size}")
+                            val networks = results.map { scanResult ->
+                                WifiNetwork(
+                                    ssid = scanResult.SSID,
+                                    bssid = scanResult.BSSID,
+                                    capabilities = scanResult.capabilities,
+                                    level = scanResult.level,
+                                    frequency = scanResult.frequency,
+                                    isSecured = !scanResult.capabilities.contains("OPEN"),
+                                    isSaved = preferences.isNetworkSaved(scanResult.SSID)
+                                )
+                            }
+                            trySend(networks)
+                        } catch (e: SecurityException) {
+                            Log.w(TAG, "onReceive: SecurityException while accessing scanResults: ${e.message}")
+                            trySend(emptyList())
+                        } catch (e: Exception) {
+                            Log.e(TAG, "onReceive: unexpected error while processing scan results", e)
+                            trySend(emptyList())
+                        }
+                    }
+                }
+
+                val intentFilter = IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
+                context.registerReceiver(receiver, intentFilter)
+
+                try {
+                    @Suppress("DEPRECATION")
+                    val started = wifiManager.startScan()
+                    Log.d(TAG, "startScan() called, returned=$started")
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "startScan() failed with SecurityException: ${e.message}")
+                    trySend(emptyList())
+                } catch (e: Exception) {
+                    Log.e(TAG, "startScan() threw unexpected exception", e)
+                    trySend(emptyList())
+                }
+
+                awaitClose { try { context.unregisterReceiver(receiver) } catch (_: Exception) {} }
             }
-            trySend(savedNetworks)
-            close()
         } else {
             // Legacy scanning for Android 9 and below
             val receiver = object : BroadcastReceiver() {
@@ -98,6 +193,7 @@ class WifiRepository(
                     try {
                         @Suppress("DEPRECATION")
                         val results = wifiManager.scanResults
+                        Log.d(TAG, "onReceive (legacy): scan results count=${results.size}")
                         val networks = results.map { scanResult ->
                             WifiNetwork(
                                 ssid = scanResult.SSID,
@@ -111,6 +207,10 @@ class WifiRepository(
                         }
                         trySend(networks)
                     } catch (e: SecurityException) {
+                        Log.w(TAG, "onReceive (legacy): SecurityException: ${e.message}")
+                        trySend(emptyList())
+                    } catch (e: Exception) {
+                        Log.e(TAG, "onReceive (legacy): unexpected error", e)
                         trySend(emptyList())
                     }
                 }
@@ -121,8 +221,13 @@ class WifiRepository(
 
             try {
                 @Suppress("DEPRECATION")
-                wifiManager.startScan()
+                val started = wifiManager.startScan()
+                Log.d(TAG, "startScan() (legacy) called, returned=$started")
             } catch (e: SecurityException) {
+                Log.w(TAG, "startScan() (legacy) SecurityException: ${e.message}")
+                trySend(emptyList())
+            } catch (e: Exception) {
+                Log.e(TAG, "startScan() (legacy) unexpected exception", e)
                 trySend(emptyList())
             }
 

@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_module/core/constants/bluetooth_constants.dart';
 import '../models/bluetooth_device_model.dart';
-import 'dart:io';
+import '../../domain/entities/bluetooth_device.dart';
 
 abstract class BluetoothDataSource {
   Future<bool> isBluetoothEnabled();
@@ -30,37 +30,86 @@ abstract class BluetoothDataSource {
 
 class BluetoothDataSourceImpl implements BluetoothDataSource {
   final MethodChannel _channel;
+  final bool useMockData; // <-- Manual flag
+  // controllers are broadcast so multiple UI listeners can subscribe
   final StreamController<List<BluetoothDeviceModel>> _devicesController =
-  StreamController.broadcast();
+      StreamController<List<BluetoothDeviceModel>>.broadcast();
   final StreamController<ConnectionStatusModel> _connectionController =
-  StreamController.broadcast();
+      StreamController<ConnectionStatusModel>.broadcast();
 
-  BluetoothDataSourceImpl({MethodChannel? channel})
-      : _channel =
-      channel ?? const MethodChannel(BluetoothConstants.channelName) {
+  // Helper logging tag and timeout for platform calls
+  final String _tag = 'BT_DS';
+  final Duration _invokeTimeout = const Duration(seconds: 5);
+  bool _isScanning = false;
+
+  void _log(String msg) => debugPrint('$_tag ${DateTime.now().toIso8601String()} - $msg');
+
+  Future<T?> _invokeWithTimeout<T>(String method, [dynamic arguments, Duration? timeout]) async {
+    try {
+      _log('invoke => $method, args=$arguments');
+      final effectiveTimeout = timeout ?? _invokeTimeout;
+      final res = await _channel.invokeMethod<T>(method, arguments).timeout(effectiveTimeout);
+      _log('invoke <= $method, result=${res.runtimeType}');
+      return res;
+    } on TimeoutException catch (e) {
+      _log('invoke TIMEOUT $method: $e');
+      throw PlatformException(code: 'TIMEOUT', message: '$method timed out');
+    } on PlatformException catch (e) {
+      _log('invoke PlatformException $method: ${e.code} ${e.message}');
+      throw e;
+    } catch (e, st) {
+      _log('invoke ERROR $method: $e\n$st');
+      rethrow;
+    }
+  }
+
+  BluetoothDataSourceImpl({
+    MethodChannel? channel,
+    this.useMockData = false, // default false
+  }) : _channel = channel ?? const MethodChannel(BluetoothConstants.channelName) {
     _setupCallbacks();
   }
 
   void _setupCallbacks() {
     _channel.setMethodCallHandler((call) async {
-      // Debug: print incoming platform calls
-      debugPrint('BluetoothDataSource: method=${call.method}, arguments=${call.arguments}');
-      switch (call.method) {
-        case BluetoothConstants.callbackOnDevicesFound:
-          final List<dynamic> devicesList = call.arguments;
-          final devices = devicesList
-              .map((e) =>
-              BluetoothDeviceModel.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
-          _devicesController.add(devices);
-          break;
+      _log('method=${call.method}, arguments=${call.arguments}');
+      try {
+        switch (call.method) {
+          case BluetoothConstants.callbackOnDevicesFound:
+            final dynamic arg = call.arguments;
+            if (arg is List) {
+              final devices = (arg)
+                  .map((e) => BluetoothDeviceModel.fromJson(Map<String, dynamic>.from(e)))
+                  .toList();
+              if (!_devicesController.isClosed) {
+                _devicesController.add(devices);
+              } else {
+                _log('devices controller closed, skipping devices event');
+              }
+            } else {
+              _log('unexpected devices payload: ${arg.runtimeType}');
+            }
+            break;
 
-        case BluetoothConstants.callbackOnConnectionStatusChanged:
-          final Map<String, dynamic> statusMap =
-          Map<String, dynamic>.from(call.arguments);
-          final status = ConnectionStatusModel.fromJson(statusMap);
-          _connectionController.add(status);
-          break;
+          case BluetoothConstants.callbackOnConnectionStatusChanged:
+            final dynamic arg = call.arguments;
+            if (arg is Map) {
+              final status = ConnectionStatusModel.fromJson(Map<String, dynamic>.from(arg));
+              if (!_connectionController.isClosed) {
+                _connectionController.add(status);
+              } else {
+                _log('connection controller closed, skipping status event');
+              }
+            } else {
+              _log('unexpected connection status payload: ${arg.runtimeType}');
+            }
+            break;
+          default:
+            _log('unhandled method from platform: ${call.method}');
+        }
+      } catch (e, st) {
+        _log('exception handling platform call ${call.method}: $e\n$st');
+        // Surface parsing errors to Dart side if appropriate
       }
     });
   }
@@ -68,8 +117,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   @override
   Future<bool> isBluetoothEnabled() async {
     try {
-      final result = await _channel
-          .invokeMethod<bool>(BluetoothConstants.methodIsBluetoothEnabled);
+      final result = await _channel.invokeMethod<bool>(BluetoothConstants.methodIsBluetoothEnabled);
       return result ?? false;
     } on PlatformException catch (e) {
       throw _handleException(e);
@@ -97,8 +145,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
   @override
   Future<bool> hasPermissions() async {
     try {
-      final result =
-      await _channel.invokeMethod<bool>(BluetoothConstants.methodHasPermissions);
+      final result = await _channel.invokeMethod<bool>(BluetoothConstants.methodHasPermissions);
       return result ?? false;
     } on PlatformException catch (e) {
       throw _handleException(e);
@@ -107,19 +154,8 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Stream<List<BluetoothDeviceModel>> startScan({int duration = 10000}) {
-
-    try {
-      _channel.invokeMethod(
-        BluetoothConstants.methodStartScan,
-        {'duration': duration},
-      );
-    } catch (_) {
-
-    }
-
-
-    if (kDebugMode) {
-
+    if (useMockData) {
+      // Return mock devices for testing
       Future.delayed(const Duration(milliseconds: 500), () {
         final mockList = [
           {
@@ -153,35 +189,92 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
             .toList();
         _devicesController.add(devices);
       });
-    }
 
-    return _devicesController.stream;
+      return _devicesController.stream;
+    } else {
+
+      _isScanning = true;
+
+      _channel
+          .invokeMethod(BluetoothConstants.methodStartScan, {'duration': duration})
+          .then((res) => _log('startScan invoke returned: ${res ?? 'null'}'))
+          .catchError((e) {
+        _log('startScan native error: $e');
+
+        if (e is PlatformException && e.code == 'TIMEOUT') {
+          _log('startScan timed out - suppressing stream error and continuing');
+        } else {
+          if (!_devicesController.isClosed) {
+            _devicesController.addError(Exception('Native startScan failed: $e'));
+          }
+        }
+      });
+
+
+      try {
+        Future.delayed(Duration(milliseconds: duration + 500), () async {
+          if (_isScanning) {
+            _log('auto-stop scan after duration');
+            await stopScan().catchError((e) => _log('auto-stop error: $e'));
+          }
+        });
+      } catch (e) {
+        _log('scheduling auto-stop failed: $e');
+      }
+
+      return _devicesController.stream;
+    }
   }
 
   @override
   Future<void> stopScan() async {
-    try {
-      await _channel.invokeMethod(BluetoothConstants.methodStopScan);
-    } on PlatformException catch (e) {
-      throw _handleException(e);
+    if (!useMockData) {
+      _isScanning = false;
+      try {
+        await _invokeWithTimeout(BluetoothConstants.methodStopScan);
+      } on PlatformException catch (e) {
+        throw _handleException(e);
+      }
     }
   }
 
   @override
   Stream<ConnectionStatusModel> connectToDevice(String address) {
-    _channel.invokeMethod(
-      BluetoothConstants.methodConnectToDevice,
-      {'address': address},
-    );
+    if (!useMockData) {
+      // fire-and-forget; native side will post connection updates via callback
+      _invokeWithTimeout(BluetoothConstants.methodConnectToDevice, {'address': address}).catchError((e) {
+        _log('connectToDevice native error: $e');
+        if (!_connectionController.isClosed) {
+          _connectionController.add(ConnectionStatusModel(
+            state: ConnectionState.disconnected,
+            message: 'Connection failed: $e',
+          ));
+        }
+      });
+    } else {
+      // Simulate a connected status for mock device
+      Future.delayed(const Duration(seconds: 1), () {
+        _connectionController.add(
+          ConnectionStatusModel(
+            state: ConnectionState.connected,
+            //network: null,
+            message: 'Mock device connected',
+
+          ),
+        );
+      });
+    }
     return _connectionController.stream;
   }
 
   @override
   Future<void> disconnect() async {
-    try {
-      await _channel.invokeMethod(BluetoothConstants.methodDisconnect);
-    } on PlatformException catch (e) {
-      throw _handleException(e);
+    if (!useMockData) {
+      try {
+        await _invokeWithTimeout(BluetoothConstants.methodDisconnect);
+      } on PlatformException catch (e) {
+        throw _handleException(e);
+      }
     }
   }
 
@@ -191,6 +284,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     required String characteristicUuid,
     required Uint8List data,
   }) async {
+    if (useMockData) return true;
     try {
       final result = await _channel.invokeMethod<bool>(
         BluetoothConstants.methodWriteData,
@@ -211,6 +305,7 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
     required String serviceUuid,
     required String characteristicUuid,
   }) async {
+    if (useMockData) return true;
     try {
       final result = await _channel.invokeMethod<bool>(
         BluetoothConstants.methodReadData,
@@ -219,7 +314,6 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
           'characteristicUuid': characteristicUuid,
         },
       );
-
       return result ?? false;
     } on PlatformException catch (e) {
       throw _handleException(e);
@@ -228,13 +322,12 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Future<List<BluetoothDeviceModel>> getPairedDevices() async {
+    if (useMockData) return [];
     try {
-      final List<dynamic>? result = await _channel.invokeMethod<List<dynamic>>(
-          BluetoothConstants.methodGetPairedDevices);
+      final List<dynamic>? result = await _invokeWithTimeout<List<dynamic>>(BluetoothConstants.methodGetPairedDevices);
       return result
-          ?.map((e) =>
-          BluetoothDeviceModel.fromJson(Map<String, dynamic>.from(e)))
-          .toList() ??
+              ?.map((e) => BluetoothDeviceModel.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
           [];
     } on PlatformException catch (e) {
       throw _handleException(e);
@@ -243,23 +336,33 @@ class BluetoothDataSourceImpl implements BluetoothDataSource {
 
   @override
   Stream<ConnectionStatusModel> get connectionStatusStream =>
-      _connectionController.stream;
+       _connectionController.stream;
 
-  Exception _handleException(PlatformException e) {
-    switch (e.code) {
-      case 'INVALID_ARGUMENT':
-        return Exception('Invalid argument: ${e.message}');
-      case 'SCAN_ERROR':
-        return Exception('Bluetooth scan failed: ${e.message}');
-      case 'CONNECTION_ERROR':
-        return Exception('Connection failed: ${e.message}');
-      default:
-        return Exception('Bluetooth error: ${e.message}');
-    }
-  }
+   Exception _handleException(PlatformException e) {
+     switch (e.code) {
+       case 'INVALID_ARGUMENT':
+         return Exception('Invalid argument: ${e.message}');
+       case 'SCAN_ERROR':
+         return Exception('Bluetooth scan failed: ${e.message}');
+       case 'CONNECTION_ERROR':
+         return Exception('Connection failed: ${e.message}');
+       default:
+         return Exception('Bluetooth error: ${e.message}');
+     }
+   }
 
-  void dispose() {
-    _devicesController.close();
-    _connectionController.close();
-  }
-}
+   void dispose() {
+     _log('dispose called - stopping scan and closing controllers');
+     _isScanning = false;
+
+     if (!useMockData) {
+       _invokeWithTimeout(BluetoothConstants.methodStopScan).catchError((e) => _log('dispose stopScan error: $e'));
+     }
+     if (!_devicesController.isClosed) {
+       _devicesController.close();
+     }
+     if (!_connectionController.isClosed) {
+       _connectionController.close();
+     }
+   }
+ }

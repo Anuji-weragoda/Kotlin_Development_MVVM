@@ -1,5 +1,6 @@
 package com.example.androidapp
 
+import android.app.Activity
 import android.content.Context
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -44,15 +45,32 @@ object ChannelManager {
             }
         }
 
+        // Pass the Activity (if available) to handlers so they can request runtime permissions.
+        // The callers currently pass MainActivity as the `context` param in setup(), so try to
+        // cast to Activity; fall back to application context if not an Activity.
+        val activity = if (context is Activity) context else null
 
         bluetoothChannel = MethodChannel(engine.dartExecutor.binaryMessenger, BLUETOOTH_CHANNEL)
-        bluetoothHandler = BluetoothHandler(appContext, bluetoothChannel!!)
-
+        // If we have an Activity, pass it; otherwise pass applicationContext as before.
+        bluetoothHandler = if (activity != null) BluetoothHandler(activity, bluetoothChannel!!) else BluetoothHandler(appContext, bluetoothChannel!!)
 
         wifiChannel = MethodChannel(engine.dartExecutor.binaryMessenger, WIFI_CHANNEL)
-        wifiHandler = WifiHandler(appContext, wifiChannel!!)
+        wifiHandler = if (activity != null) WifiHandler(activity, wifiChannel!!) else WifiHandler(appContext, wifiChannel!!)
     }
 
+    // Forward Activity permission results to handlers so they can notify Flutter
+    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        try {
+            bluetoothHandler?.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        } catch (t: Throwable) {
+            Timber.w(t, "ChannelManager: bluetoothHandler onRequestPermissionsResult threw")
+        }
+        try {
+            wifiHandler?.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        } catch (t: Throwable) {
+            Timber.w(t, "ChannelManager: wifiHandler onRequestPermissionsResult threw")
+        }
+    }
 
     fun setUserSession(email: String, userId: String, token: String) {
         userSession = mapOf(
@@ -77,5 +95,6 @@ object ChannelManager {
         wifiHandler?.dispose()
         bluetoothHandler = null
         wifiHandler = null
+        flutterEngine = null
     }
 }

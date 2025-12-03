@@ -1,8 +1,13 @@
 package com.example.androidapp.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.androidapp.ChannelManager
@@ -17,6 +22,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var flutterEngine: FlutterEngine
 
     private val ENGINE_ID = "main"
+
+    private val REQUEST_RUNTIME_PERMISSIONS = 4201
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,10 +48,61 @@ class MainActivity : AppCompatActivity() {
 
         // --- Cache FlutterEngine ---
         FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+
+        // Ensure we have the runtime permissions needed for Bluetooth & Wi‑Fi scanning.
+        checkAndRequestRuntimePermissions()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         ChannelManager.dispose()
+    }
+
+    // Forward permission results to ChannelManager so native handlers can react
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        // If this is our combined runtime request, also forward to ChannelManager just in case
+        if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
+            ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        }
+    }
+
+    // Build a compact set of runtime permissions we need and request any that are missing.
+    private fun checkAndRequestRuntimePermissions() {
+        val required = mutableListOf<String>()
+
+        // Bluetooth permissions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                required.add(Manifest.permission.BLUETOOTH_SCAN)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                required.add(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                required.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }
+
+        // Wi‑Fi scanning permissions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) != PackageManager.PERMISSION_GRANTED) {
+                required.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+            }
+        } else {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (!required.contains(Manifest.permission.ACCESS_FINE_LOCATION)) required.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (!required.contains(Manifest.permission.ACCESS_COARSE_LOCATION)) required.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+        }
+
+        if (required.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, required.toTypedArray(), REQUEST_RUNTIME_PERMISSIONS)
+        }
     }
 }
