@@ -69,25 +69,23 @@ class PaymentActivity : AppCompatActivity() {
                                 Timber.d("Checkout session initialized, launching Drop-in")
 
                                 try {
-                                    // SessionDropInResultContractParams needs 3 args:
-                                    // CheckoutConfiguration, CheckoutSession, Class<out SessionDropInService>
+
                                     val paramsClass = Class.forName("com.adyen.checkout.dropin.internal.ui.model.SessionDropInResultContractParams")
 
-                                    // Find constructor with 3 parameters (use parameterTypes.size for API < 26)
+
                                     val constructor = paramsClass.declaredConstructors.find { it.parameterTypes.size == 3 }
                                         ?: throw IllegalStateException("Constructor with 3 params not found")
                                     constructor.isAccessible = true
 
-                                    // Create CheckoutConfiguration
+
                                     val checkoutConfig = com.adyen.checkout.components.core.CheckoutConfiguration(
                                         environment = paymentRepository.environment,
                                         clientKey = paymentRepository.clientKey
                                     )
 
-                                    // SessionDropInService class
                                     val serviceClass = com.adyen.checkout.dropin.SessionDropInService::class.java
 
-                                    // Create params with all 3 arguments
+
                                     val params = constructor.newInstance(checkoutConfig, checkoutSession, serviceClass)
 
                                     @Suppress("UNCHECKED_CAST")

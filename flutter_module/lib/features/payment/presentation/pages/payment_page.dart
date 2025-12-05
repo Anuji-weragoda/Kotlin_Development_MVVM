@@ -188,9 +188,55 @@ class _PaymentPageState extends State<PaymentPage> {
           const SizedBox(height: 12),
           _buildDetailRow('Transaction Type', 'One-time Payment'),
           const SizedBox(height: 12),
-          _buildDetailRow('Status', _getStatusText(state)),
+          _buildStatusRow(state),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusRow(PaymentState state) {
+    final statusText = _getStatusText(state);
+    Color statusColor;
+    IconData statusIcon;
+
+    if (state is PaymentSuccess) {
+      statusColor = Colors.green[600]!;
+      statusIcon = Icons.check_circle;
+    } else if (state is PaymentFailure) {
+      statusColor = Colors.red[600]!;
+      statusIcon = Icons.error;
+    } else if (state is PaymentLoading) {
+      statusColor = Colors.orange[600]!;
+      statusIcon = Icons.hourglass_empty;
+    } else {
+      statusColor = Colors.blue[600]!;
+      statusIcon = Icons.info_outline;
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('Status', style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: statusColor.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(statusIcon, size: 16, color: statusColor),
+              const SizedBox(width: 6),
+              Text(
+                statusText,
+                style: TextStyle(color: statusColor, fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -298,9 +344,9 @@ class _PaymentPageState extends State<PaymentPage> {
 
   String _getStatusText(PaymentState state) {
     if (state is PaymentLoading) return 'Processing...';
-    if (state is PaymentSuccess) return 'Success';
+    if (state is PaymentSuccess) return 'Succeeded';
     if (state is PaymentFailure) return 'Failed';
-    return 'Pending';
+    return 'Ready';
   }
 
   void _showSuccessDialog(String message) {

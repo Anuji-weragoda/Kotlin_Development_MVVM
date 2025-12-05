@@ -1,5 +1,6 @@
 package com.example.androidapp.ui
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
@@ -19,6 +20,9 @@ class FlutterDashboardActivity : FlutterActivity() {
 
         Timber.d("FlutterDashboardActivity onCreate called")
         Log.d(TAG, "FlutterDashboardActivity onCreate called")
+
+        // Set this activity as the current activity for payment launches
+        ChannelManager.setCurrentActivity(this)
 
         // Extract user data from Intent
         val email = intent.getStringExtra("email")
@@ -47,6 +51,27 @@ class FlutterDashboardActivity : FlutterActivity() {
             Timber.w("Missing user data in intent extras")
             Log.w(TAG, "Missing user data in intent extras")
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        Timber.d("FlutterDashboardActivity onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
+
+        // Forward result to ChannelManager
+        ChannelManager.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Ensure this activity is set as current when resumed
+        ChannelManager.setCurrentActivity(this)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Clear the activity reference when destroyed
+        ChannelManager.setCurrentActivity(null)
     }
 
     // Return cached FlutterEngine
