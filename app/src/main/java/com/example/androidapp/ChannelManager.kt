@@ -7,6 +7,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import timber.log.Timber
 import com.example.androidapp.ui.payment.PaymentActivity
+import java.lang.ref.WeakReference
 
 object ChannelManager : PluginRegistry.ActivityResultListener {
 
@@ -15,13 +16,21 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
     private var paymentChannel: MethodChannel? = null
     private var userSession: Map<String, String>? = null
     private var pendingPaymentResult: MethodChannel.Result? = null
+    private var currentActivityRef: WeakReference<Activity>? = null
 
     private const val DASHBOARD_CHANNEL = "com.example.flutter/dashboard"
     private const val PAYMENT_CHANNEL = "com.example.app/adyen"
     private const val PAYMENT_REQUEST_CODE = 1001
 
+    // Call this to update the current activity (e.g., when FlutterDashboardActivity starts)
+    fun setCurrentActivity(activity: Activity?) {
+        currentActivityRef = if (activity != null) WeakReference(activity) else null
+        Timber.d("Current activity set to: ${activity?.javaClass?.simpleName}")
+    }
+
     fun setup(engine: FlutterEngine, activity: Activity) {
         flutterEngine = engine
+        currentActivityRef = WeakReference(activity)
 
         // Dashboard Channel
         dashboardChannel = MethodChannel(engine.dartExecutor.binaryMessenger, DASHBOARD_CHANNEL)
@@ -50,15 +59,21 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
 
                     Timber.d("Starting payment flow: $amount $currency")
 
+                    val activityToUse = currentActivityRef?.get()
+                    if (activityToUse == null) {
+                        result.error("NO_ACTIVITY", "No activity available to launch payment", null)
+                        return@setMethodCallHandler
+                    }
+
                     // Store the result callback for later
                     pendingPaymentResult = result
 
-                    // Launch PaymentActivity
-                    val intent = Intent(activity, PaymentActivity::class.java).apply {
+                    // Launch PaymentActivity from current activity
+                    val intent = Intent(activityToUse, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_AMOUNT, amount)
                         putExtra(PaymentActivity.EXTRA_CURRENCY, currency)
                     }
-                    activity.startActivityForResult(intent, PAYMENT_REQUEST_CODE)
+                    activityToUse.startActivityForResult(intent, PAYMENT_REQUEST_CODE)
                 }
                 else -> result.notImplemented()
             }
