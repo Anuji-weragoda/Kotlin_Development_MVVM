@@ -17,10 +17,24 @@ class PaymentCubit extends Cubit<PaymentState> {
         currency: currency,
       );
 
-      if (result != null && !result.startsWith("Error")) {
+      if (result == null) {
+        emit(const PaymentFailure('No response from platform'));
+        return;
+      }
+
+      // If the platform returned an error map
+      if (result.containsKey('error')) {
+        emit(PaymentFailure(result['error']?.toString() ?? 'Unknown error'));
+        return;
+      }
+
+      // If the platform returned a simple result map
+      final bool success = result['success'] == true;
+      if (success) {
         emit(PaymentSuccess(result));
       } else {
-        emit(PaymentFailure(result ?? "Unknown error"));
+        final String message = result['message']?.toString() ?? result['result']?.toString() ?? 'Payment failed';
+        emit(PaymentFailure(message));
       }
     } catch (e) {
       emit(PaymentFailure(e.toString()));

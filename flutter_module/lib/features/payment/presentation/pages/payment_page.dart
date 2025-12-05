@@ -18,7 +18,9 @@ class PaymentPage extends StatelessWidget {
       body: BlocConsumer<PaymentCubit, PaymentState>(
         listener: (context, state) {
           if (state is PaymentSuccess) {
-            _showSuccessDialog(context, state.message);
+            // Extract a human-readable message from the Map payload
+            final msg = (state.data['message'] ?? state.data['result'] ?? 'Payment successful')?.toString() ?? 'Payment successful';
+            _showSuccessDialog(context, msg);
           } else if (state is PaymentFailure) {
             _showErrorSnackBar(context, state.error);
           }

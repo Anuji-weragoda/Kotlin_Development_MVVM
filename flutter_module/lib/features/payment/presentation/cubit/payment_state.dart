@@ -12,11 +12,15 @@ class PaymentInitial extends PaymentState {}
 class PaymentLoading extends PaymentState {}
 
 class PaymentSuccess extends PaymentState {
-  final String message;
-  const PaymentSuccess(this.message);
+  final Map<String, dynamic> data;
+  const PaymentSuccess(this.data);
+
+  /// Backwards-compatible message getter for code that expects `state.message`.
+  String get message =>
+      (data['message'] ?? data['result'] ?? 'Payment successful')?.toString() ?? 'Payment successful';
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [data];
 }
 
 class PaymentFailure extends PaymentState {
