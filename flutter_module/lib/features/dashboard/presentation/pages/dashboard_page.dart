@@ -142,7 +142,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: StatCard(
                         icon: Icons.access_time_rounded,
                         label: 'Member Since',
-                        value: '2024',
+                        value: '',
                         color: const Color(0xFF6366F1),
                         gradient: AppColors.primaryGradient,
                       ),

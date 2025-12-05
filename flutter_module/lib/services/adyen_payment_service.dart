@@ -5,7 +5,7 @@ class AdyenPaymentService {
 
   AdyenPaymentService();
 
-  // Return the full platform result as a Map so we can inspect success, actionData, etc.
+
   Future<Map<String, dynamic>?> startPayment({
     required String amount,
     required String currency,
