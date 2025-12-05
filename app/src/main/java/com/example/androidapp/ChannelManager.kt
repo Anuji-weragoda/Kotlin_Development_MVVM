@@ -1,33 +1,26 @@
 package com.example.androidapp
 
+import android.app.Activity
+import android.content.Intent
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.PluginRegistry
 import timber.log.Timber
-import com.example.androidapp.data.repository.AdyenPaymentRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.example.androidapp.ui.payment.PaymentActivity
 
-object ChannelManager {
+object ChannelManager : PluginRegistry.ActivityResultListener {
 
     private var flutterEngine: FlutterEngine? = null
     private var dashboardChannel: MethodChannel? = null
     private var paymentChannel: MethodChannel? = null
     private var userSession: Map<String, String>? = null
-
-    // Add payment repository instance
-    private var paymentRepository: AdyenPaymentRepository? = null
+    private var pendingPaymentResult: MethodChannel.Result? = null
 
     private const val DASHBOARD_CHANNEL = "com.example.flutter/dashboard"
     private const val PAYMENT_CHANNEL = "com.example.app/adyen"
+    private const val PAYMENT_REQUEST_CODE = 1001
 
-    // Call this from MainActivity to inject dependencies
-    fun setPaymentRepository(repository: AdyenPaymentRepository) {
-        paymentRepository = repository
-    }
-
-    fun setup(engine: FlutterEngine) {
+    fun setup(engine: FlutterEngine, activity: Activity) {
         flutterEngine = engine
 
         // Dashboard Channel
@@ -55,66 +48,70 @@ object ChannelManager {
                     val amount = call.argument<String>("amount") ?: "0.0"
                     val currency = call.argument<String>("currency") ?: "USD"
 
-                    Timber.d("Processing payment: $amount $currency")
+                    Timber.d("Starting payment flow: $amount $currency")
 
-                    if (paymentRepository == null) {
-                        result.error("NO_REPOSITORY", "Payment repository not initialized", null)
-                        return@setMethodCallHandler
+                    // Store the result callback for later
+                    pendingPaymentResult = result
+
+                    // Launch PaymentActivity
+                    val intent = Intent(activity, PaymentActivity::class.java).apply {
+                        putExtra(PaymentActivity.EXTRA_AMOUNT, amount)
+                        putExtra(PaymentActivity.EXTRA_CURRENCY, currency)
                     }
-
-                    CoroutineScope(Dispatchers.Main).launch {
-                        try {
-                            val paymentResult = withContext(Dispatchers.IO) {
-                                paymentRepository!!.startPayment(amount, currency)
-                            }
-
-                            paymentResult.fold(
-                                onSuccess = { paymentData ->
-                                    Timber.d("Payment result: $paymentData")
-
-                                    // Use nullable Any for values to be safe when marshaling across the MethodChannel
-                                    val resultMap = mutableMapOf<String, Any?>(
-                                        "success" to paymentData.success,
-                                        "message" to paymentData.message,
-                                        "transactionId" to (paymentData.transactionId ?: ""),
-                                        "resultCode" to paymentData.resultCode,
-                                        "requiresAction" to paymentData.requiresAction
-                                    )
-
-                                    // Convert actionData into a Java HashMap<String, String> so the platform channel receives a plain map
-                                    paymentData.actionData?.let { actionData ->
-                                        val safeMap = java.util.HashMap<String, String>()
-                                        actionData.forEach { (k, v) ->
-                                            // v is expected to be a String; convert defensively if needed
-                                            safeMap[k] = v
-                                        }
-
-                                        resultMap["actionData"] = safeMap
-                                    }
-
-
-                                    result.success(resultMap)
-
-                                },
-                                onFailure = { error ->
-                                    Timber.e("Payment failed: ${error.message}")
-                                    result.error(
-                                        "PAYMENT_FAILED",
-                                        error.message ?: "Unknown error",
-                                        null
-                                    )
-                                }
-                            )
-                        } catch (e: Exception) {
-                            Timber.e(e, "Payment exception")
-                            result.error("PAYMENT_ERROR", e.message ?: "Unknown error", null)
-                        }
-                    }
+                    activity.startActivityForResult(intent, PAYMENT_REQUEST_CODE)
                 }
                 else -> result.notImplemented()
             }
         }
-    } // <-- This closing brace was missing!
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == PAYMENT_REQUEST_CODE) {
+            val result = pendingPaymentResult
+            pendingPaymentResult = null
+
+            if (result == null) {
+                Timber.e("No pending payment result callback")
+                return false
+            }
+
+            when (data?.getStringExtra("result")) {
+                PaymentActivity.RESULT_PAYMENT_SUCCESS -> {
+                    val resultMap = mapOf(
+                        "success" to true,
+                        "message" to (data.getStringExtra("message") ?: "Payment successful"),
+                        "transactionId" to (data.getStringExtra("transactionId") ?: ""),
+                        "resultCode" to (data.getStringExtra("resultCode") ?: ""),
+                        "requiresAction" to false
+                    )
+                    result.success(resultMap)
+                }
+                PaymentActivity.RESULT_PAYMENT_CANCELLED -> {
+                    result.error(
+                        "PAYMENT_CANCELLED",
+                        "Payment cancelled by user",
+                        null
+                    )
+                }
+                PaymentActivity.RESULT_PAYMENT_FAILURE -> {
+                    result.error(
+                        "PAYMENT_FAILED",
+                        data.getStringExtra("message") ?: "Payment failed",
+                        null
+                    )
+                }
+                else -> {
+                    result.error(
+                        "UNKNOWN_ERROR",
+                        "Unknown payment result",
+                        null
+                    )
+                }
+            }
+            return true
+        }
+        return false
+    }
 
     fun setUserSession(email: String, userId: String, token: String) {
         userSession = mapOf(

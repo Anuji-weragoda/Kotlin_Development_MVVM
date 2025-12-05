@@ -123,5 +123,8 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    implementation("com.adyen.checkout:drop-in:5.0.0")
+    // Adyen Checkout with Compose support
+    implementation("com.adyen.checkout:drop-in-compose:5.15.0")
+    implementation("com.adyen.checkout:sessions-core:5.15.0")
+    implementation("com.adyen.checkout:card:5.15.0")
 }
