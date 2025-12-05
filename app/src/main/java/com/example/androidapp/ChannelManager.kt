@@ -72,16 +72,29 @@ object ChannelManager {
                                 onSuccess = { paymentData ->
                                     Timber.d("Payment result: $paymentData")
 
-                                    // Return structured data to Flutter
-                                    val resultMap = mapOf(
+                                    // Use nullable Any for values to be safe when marshaling across the MethodChannel
+                                    val resultMap = mutableMapOf<String, Any?>(
                                         "success" to paymentData.success,
                                         "message" to paymentData.message,
-                                        "transactionId" to paymentData.transactionId,
+                                        "transactionId" to (paymentData.transactionId ?: ""),
                                         "resultCode" to paymentData.resultCode,
                                         "requiresAction" to paymentData.requiresAction
                                     )
 
+                                    // Convert actionData into a Java HashMap<String, String> so the platform channel receives a plain map
+                                    paymentData.actionData?.let { actionData ->
+                                        val safeMap = java.util.HashMap<String, String>()
+                                        actionData.forEach { (k, v) ->
+                                            // v is expected to be a String; convert defensively if needed
+                                            safeMap[k] = v
+                                        }
+
+                                        resultMap["actionData"] = safeMap
+                                    }
+
+
                                     result.success(resultMap)
+
                                 },
                                 onFailure = { error ->
                                     Timber.e("Payment failed: ${error.message}")

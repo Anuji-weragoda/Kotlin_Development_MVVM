@@ -5,7 +5,8 @@ class AdyenPaymentService {
 
   AdyenPaymentService();
 
-  Future<String?> startPayment({
+  // Return the full platform result as a Map so we can inspect success, actionData, etc.
+  Future<Map<String, dynamic>?> startPayment({
     required String amount,
     required String currency,
   }) async {
@@ -14,9 +15,20 @@ class AdyenPaymentService {
         'amount': amount,
         'currency': currency,
       });
-      return result as String?;
+
+      if (result == null) return null;
+
+      // The platform channel may send a Map<dynamic, dynamic> — cast it defensively
+      if (result is Map) {
+        return Map<String, dynamic>.from(result as Map);
+      }
+
+      // If we get a non-map (older code expected a String), convert to a simple map
+      return {'result': result.toString()};
     } on PlatformException catch (e) {
-      return "Error: ${e.message}";
+      return {'error': e.message ?? 'Platform exception'};
+    } catch (e) {
+      return {'error': e.toString()};
     }
   }
 }
