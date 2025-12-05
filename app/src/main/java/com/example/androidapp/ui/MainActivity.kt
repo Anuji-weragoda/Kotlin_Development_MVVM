@@ -1,5 +1,6 @@
 package com.example.androidapp.ui
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -35,15 +36,24 @@ class MainActivity : AppCompatActivity() {
         flutterEngine = FlutterEngine(this)
         flutterEngine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
 
-        // Initialize Payment Repository
-        val apiService = RetrofitClient.getApiService()
-        val paymentRepository = AdyenPaymentRepository(apiService)
-        ChannelManager.setPaymentRepository(paymentRepository)
-
-        // Setup MethodChannel
-        ChannelManager.setup(flutterEngine)
+        // Setup ChannelManager
+        ChannelManager.setup(flutterEngine, this)
 
         // Cache the engine for reuse
         FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+
+        if (!ChannelManager.onActivityResult(requestCode, resultCode, data)) {
+
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+
     }
 }
