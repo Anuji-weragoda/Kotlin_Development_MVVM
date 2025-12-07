@@ -40,7 +40,7 @@ class SplashFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Optional: Add fade-in animation
+
         binding.root.alpha = 0f
         binding.root.animate()
             .alpha(1f)

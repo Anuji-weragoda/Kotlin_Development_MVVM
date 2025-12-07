@@ -4,30 +4,28 @@ import '../../features/dashboard/data/repositories/dashboard_repository_impl.dar
 import '../../features/dashboard/domain/repositories/dashboard_repository.dart';
 import '../../features/dashboard/presentation/cubit/dashboard_cubit.dart';
 
-// Payment feature
+
 import '../../features/payment/presentation/cubit/payment_cubit.dart';
 import '../../../services/adyen_payment_service.dart';
 
-final sl = GetIt.instance; // Service Locator
+final sl = GetIt.instance;
 
 Future<void> init() async {
-  //! Core services
+
   sl.registerLazySingleton(() => AdyenPaymentService());
 
-  //! Features - Dashboard
-  // Cubit
   sl.registerFactory(() => DashboardCubit(sl()));
 
-  // Repository
+
   sl.registerLazySingleton<DashboardRepository>(
         () => DashboardRepositoryImpl(sl()),
   );
 
-  // Data sources
+
   sl.registerLazySingleton<DashboardRemoteDataSource>(
         () => DashboardRemoteDataSourceImpl(),
   );
 
-  //! Features - Payment
+
   sl.registerFactory(() => PaymentCubit(sl()));
 }

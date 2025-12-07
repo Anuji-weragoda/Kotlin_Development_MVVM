@@ -22,7 +22,7 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
     private const val PAYMENT_CHANNEL = "com.example.app/adyen"
     private const val PAYMENT_REQUEST_CODE = 1001
 
-    // Call this to update the current activity (e.g., when FlutterDashboardActivity starts)
+
     fun setCurrentActivity(activity: Activity?) {
         currentActivityRef = if (activity != null) WeakReference(activity) else null
         Timber.d("Current activity set to: ${activity?.javaClass?.simpleName}")
@@ -65,10 +65,10 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
                         return@setMethodCallHandler
                     }
 
-                    // Store the result callback for later
+
                     pendingPaymentResult = result
 
-                    // Launch PaymentActivity from current activity
+
                     val intent = Intent(activityToUse, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_AMOUNT, amount)
                         putExtra(PaymentActivity.EXTRA_CURRENCY, currency)
