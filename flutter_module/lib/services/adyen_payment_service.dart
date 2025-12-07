@@ -18,12 +18,12 @@ class AdyenPaymentService {
 
       if (result == null) return null;
 
-      // The platform channel may send a Map<dynamic, dynamic> — cast it defensively
+
       if (result is Map) {
         return Map<String, dynamic>.from(result as Map);
       }
 
-      // If we get a non-map (older code expected a String), convert to a simple map
+
       return {'result': result.toString()};
     } on PlatformException catch (e) {
       return {'error': e.message ?? 'Platform exception'};
