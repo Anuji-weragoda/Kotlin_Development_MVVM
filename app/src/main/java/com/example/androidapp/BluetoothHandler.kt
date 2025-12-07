@@ -23,7 +23,32 @@ class BluetoothHandler(
 
     private val preferences = BluetoothPreferences(context)
     private val repository = BluetoothRepository(context, preferences)
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        android.util.Log.e("BluetoothHandler", "Uncaught coroutine exception: ${throwable.message}", throwable)
+    }
+
+
+    @Volatile
+    private var supervisorJob: CompletableJob = SupervisorJob()
+    @Volatile
+    private var scope: CoroutineScope = CoroutineScope(Dispatchers.Main + supervisorJob + exceptionHandler)
+
+    @Synchronized
+    private fun ensureActiveScope(): CoroutineScope {
+        val scopeActive = scope.isActive
+        val jobActive = supervisorJob.isActive
+        android.util.Log.d("BluetoothHandler", "ensureActiveScope check - scope.isActive=$scopeActive, supervisorJob.isActive=$jobActive")
+
+        if (!scopeActive || !jobActive) {
+            android.util.Log.w("BluetoothHandler", "Scope or job was cancelled, recreating...")
+            // Create entirely new job and scope - don't cancel the old one as it may already be cancelled
+            supervisorJob = SupervisorJob()
+            scope = CoroutineScope(Dispatchers.Main + supervisorJob + exceptionHandler)
+            android.util.Log.d("BluetoothHandler", "New scope created, isActive: ${scope.isActive}, job.isActive: ${supervisorJob.isActive}")
+        }
+        return scope
+    }
 
     init {
         channel.setMethodCallHandler(this)
@@ -91,41 +116,61 @@ class BluetoothHandler(
             }
 
             "startScan" -> {
-                // MethodChannel may marshal numbers as Int or Long; read as Number and convert
-                val durationNumber = call.argument<Number?>("duration")
-                val duration = durationNumber?.toLong() ?: 10000L
+                try {
+                    // MethodChannel may marshal numbers as Int or Long; read as Number and convert
+                    val durationNumber = call.argument<Number?>("duration")
+                    val duration = durationNumber?.toLong() ?: 10000L
 
-                // QUICK DEBUG LOG: confirm call reached Android and duration
-                android.util.Log.d("BluetoothHandler", "startScan invoked from Flutter: duration=$duration")
+                    // QUICK DEBUG LOG: confirm call reached Android and duration
+                    android.util.Log.d("BluetoothHandler", "startScan invoked from Flutter: duration=$duration")
 
-                // Quick pre-check so Flutter gets immediate feedback if permissions/Bluetooth are missing
-                val missing = repository.getMissingPermissions()
-                android.util.Log.d("BluetoothHandler", "startScan pre-check missing permissions: $missing")
-                if (missing.isNotEmpty()) {
-                    android.util.Log.w("BluetoothHandler", "startScan: missing permissions before starting scan: $missing")
-                    // Send error back to Flutter as well as reply via result
-                    try {
-                        channel.invokeMethod("onScanError", mapOf("code" to "MISSING_PERMISSIONS", "message" to "Missing permissions: $missing"))
-                    } catch (t: Throwable) {
-                        android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                    // Quick pre-check so Flutter gets immediate feedback if permissions/Bluetooth are missing
+                    val missing = repository.getMissingPermissions()
+                    android.util.Log.d("BluetoothHandler", "startScan pre-check missing permissions: $missing")
+                    if (missing.isNotEmpty()) {
+                        android.util.Log.w("BluetoothHandler", "startScan: missing permissions before starting scan: $missing")
+                        // Send error back to Flutter as well as reply via result
+                        try {
+                            channel.invokeMethod("onScanError", mapOf("code" to "MISSING_PERMISSIONS", "message" to "Missing permissions: $missing"))
+                        } catch (t: Throwable) {
+                            android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                        }
+                        result.error("MISSING_PERMISSIONS", "Missing permissions: $missing", null)
+                        return
                     }
-                    result.error("MISSING_PERMISSIONS", "Missing permissions: $missing", null)
-                    return
-                }
 
-                if (!repository.isBluetoothEnabled()) {
-                    android.util.Log.w("BluetoothHandler", "startScan: Bluetooth is disabled")
-                    try {
-                        channel.invokeMethod("onScanError", mapOf("code" to "BLUETOOTH_DISABLED", "message" to "Bluetooth is disabled"))
-                    } catch (t: Throwable) {
-                        android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                    android.util.Log.d("BluetoothHandler", "Checking if Bluetooth is enabled...")
+                    if (!repository.isBluetoothEnabled()) {
+                        android.util.Log.w("BluetoothHandler", "startScan: Bluetooth is disabled")
+                        try {
+                            channel.invokeMethod("onScanError", mapOf("code" to "BLUETOOTH_DISABLED", "message" to "Bluetooth is disabled"))
+                        } catch (t: Throwable) {
+                            android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                        }
+                        result.error("BLUETOOTH_DISABLED", "Bluetooth is disabled", null)
+                        return
                     }
-                    result.error("BLUETOOTH_DISABLED", "Bluetooth is disabled", null)
-                    return
-                }
+                    android.util.Log.d("BluetoothHandler", "Bluetooth is enabled, checking location...")
 
-                // Start scanning in background and immediately acknowledge the method call
-                startScanning(duration, result)
+                    // CRITICAL: Check if location is enabled
+                    if (!repository.isLocationEnabled()) {
+                        android.util.Log.e("BluetoothHandler", "startScan: Location services are disabled")
+                        try {
+                            channel.invokeMethod("onScanError", mapOf("code" to "LOCATION_DISABLED", "message" to "Location services must be enabled for BLE scanning"))
+                        } catch (t: Throwable) {
+                            android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
+                        }
+                        result.error("LOCATION_DISABLED", "Location services must be enabled for BLE scanning", null)
+                        return
+                    }
+                    android.util.Log.d("BluetoothHandler", "Location is enabled, calling startScanning...")
+
+                    // Start scanning in background and immediately acknowledge the method call
+                    startScanning(duration, result)
+                } catch (ex: Exception) {
+                    android.util.Log.e("BluetoothHandler", "EXCEPTION in startScan case: ${ex.message}", ex)
+                    result.error("SCAN_ERROR", "Exception: ${ex.message}", null)
+                }
             }
 
             "stopScan" -> {
@@ -212,28 +257,39 @@ class BluetoothHandler(
     }
 
     private fun startScanning(duration: Long, result: MethodChannel.Result) {
-        // Launch collection in the background. We must *immediately* reply to the
-        // MethodChannel call (result.success) so Flutter's invokeMethod completes and
-        // doesn't hang/timeout. The scanning flow will still emit device lists via
-        // the channel.invokeMethod("onDevicesFound", ...) from the coroutine below.
-        scope.launch {
+        android.util.Log.d("BluetoothHandler", "startScanning called, launching coroutine with duration=$duration")
+
+        // Immediately acknowledge the platform method call so Flutter doesn't block.
+        android.util.Log.d("BluetoothHandler", "Returning success to Flutter immediately")
+        result.success(null)
+
+
+        val scanJob = SupervisorJob()
+        val scanScope = CoroutineScope(Dispatchers.Main + scanJob + exceptionHandler)
+
+        android.util.Log.d("BluetoothHandler", "Created fresh scan scope - isActive=${scanScope.isActive}")
+
+        // Scope already uses Main dispatcher, so we can safely invoke MethodChannel
+        val job = scanScope.launch {
+            android.util.Log.d("BluetoothHandler", "startScanning coroutine STARTED on thread: ${Thread.currentThread().name}")
             try {
                 // Use timeout of duration + 2 seconds to ensure scan completes
                 val timeoutMs = duration + 2000
-                withTimeoutOrNull(timeoutMs) {
+                android.util.Log.d("BluetoothHandler", "About to call repository.startScan, timeout=${timeoutMs}ms")
+
+                val scanResult = withTimeoutOrNull(timeoutMs) {
+                    android.util.Log.d("BluetoothHandler", "Inside withTimeoutOrNull, calling repository.startScan")
                     repository.startScan(duration)
                         .catch { e ->
-                            // Forward repository errors back to Flutter for visibility
-                            android.util.Log.e("BluetoothHandler", "repository.startScan flow error: ${e.message}")
+                            android.util.Log.e("BluetoothHandler", "repository.startScan flow error: ${e.message}", e)
                             try {
                                 channel.invokeMethod("onScanError", mapOf("code" to "SCAN_FAILED", "message" to (e.message ?: "unknown")))
                             } catch (t: Throwable) {
                                 android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
                             }
-                            // Rethrow to exit collection
-                            throw e
                         }
-                        .collectLatest { devices ->
+                        .collect { devices ->
+                            android.util.Log.d("BluetoothHandler", "Flow emitted ${devices.size} devices on thread: ${Thread.currentThread().name}")
                             val devicesList = devices.map { device ->
                                 mapOf(
                                     "name" to device.name,
@@ -245,47 +301,43 @@ class BluetoothHandler(
                                 )
                             }
 
-                            // Log for debugging
                             android.util.Log.d("BluetoothHandler", "Invoking onDevicesFound with ${devicesList.size} devices")
-
-                            // Dump the full devicesList content for debugging (shows the exact map/list sent to Flutter)
-                            try {
-                                android.util.Log.d("BluetoothHandler", "devicesList payload: ${devicesList}")
-                            } catch (logEx: Exception) {
-                                android.util.Log.e("BluetoothHandler", "Failed to stringify devicesList: ${logEx.message}")
-                            }
 
                             try {
                                 channel.invokeMethod("onDevicesFound", devicesList)
+                                android.util.Log.d("BluetoothHandler", "onDevicesFound invoked successfully")
                             } catch (invokeEx: Exception) {
                                 android.util.Log.e("BluetoothHandler", "invokeMethod failed: ${invokeEx.message}", invokeEx)
                             }
                         }
-                } ?: run {
-                    android.util.Log.w("BluetoothHandler", "Bluetooth scan timed out after duration")
+                }
+
+                if (scanResult == null) {
+                    android.util.Log.w("BluetoothHandler", "Bluetooth scan timed out after $timeoutMs ms")
                     try {
                         channel.invokeMethod("onDevicesFound", emptyList<Map<String, Any>>())
                     } catch (t: Throwable) {
                         android.util.Log.w("BluetoothHandler", "invokeMethod onDevicesFound(empty) failed: ${t.message}")
                     }
                 }
+                android.util.Log.d("BluetoothHandler", "startScanning coroutine completed successfully")
             } catch (e: Exception) {
-                // If collection fails we can't use result (it was already acknowledged)
-                android.util.Log.e("BluetoothHandler", "startScanning failed in coroutine: ${e.message}")
+                android.util.Log.e("BluetoothHandler", "startScanning failed in coroutine: ${e.message}", e)
                 try {
                     channel.invokeMethod("onScanError", mapOf("code" to "SCAN_EXCEPTION", "message" to (e.message ?: "unknown")))
                 } catch (t: Throwable) {
                     android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
                 }
+            } finally {
+                // Clean up the scan scope when done
+                scanJob.cancel()
             }
         }
-
-        // Immediately acknowledge the platform method call so Flutter doesn't block.
-        result.success(null)
+        android.util.Log.d("BluetoothHandler", "Coroutine launched, job isActive: ${job.isActive}")
     }
 
     private fun connectToDevice(address: String, result: MethodChannel.Result) {
-        scope.launch {
+        ensureActiveScope().launch {
             try {
                 repository.connectToDevice(address).collectLatest { status ->
                     val statusMap = mapOf(
@@ -310,7 +362,8 @@ class BluetoothHandler(
     }
 
     private fun observeConnectionStatus() {
-        scope.launch {
+        // Scope already uses Main dispatcher, safe to invoke MethodChannel
+        ensureActiveScope().launch {
             repository.connectionStatus.collectLatest { status ->
                 val statusMap = mapOf(
                     "state" to status.state.name,
@@ -324,12 +377,18 @@ class BluetoothHandler(
                     "message" to status.message
                 )
 
-                channel.invokeMethod("onConnectionStatusChanged", statusMap)
+                // Already on Main thread, safe to invoke
+                try {
+                    channel.invokeMethod("onConnectionStatusChanged", statusMap)
+                } catch (t: Throwable) {
+                    android.util.Log.w("BluetoothHandler", "invokeMethod onConnectionStatusChanged failed: ${t.message}")
+                }
             }
         }
     }
 
     fun dispose() {
-        scope.cancel()
+        android.util.Log.d("BluetoothHandler", "dispose() called, cancelling scope")
+        supervisorJob.cancel()
     }
 }
