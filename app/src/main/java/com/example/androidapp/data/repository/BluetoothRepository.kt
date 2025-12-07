@@ -6,6 +6,7 @@ import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import com.example.androidapp.data.local.BluetoothPreferences
@@ -87,6 +88,12 @@ class BluetoothRepository(
 
     fun isScannerAvailable(): Boolean = bluetoothAdapter?.bluetoothLeScanner != null
 
+    fun isLocationEnabled(): Boolean {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+
     // --------------------- BLE Scanning ---------------------
     @SuppressLint("MissingPermission")
     fun stopScan() {
@@ -102,22 +109,36 @@ class BluetoothRepository(
 
     @SuppressLint("MissingPermission")
     fun startScan(durationMs: Long = 10000): Flow<List<BluetoothDevice>> = callbackFlow {
+        android.util.Log.d("BluetoothRepo", "startScan called with duration=${durationMs}ms")
+
         val scanner = bluetoothAdapter?.bluetoothLeScanner
         if (scanner == null) {
+            android.util.Log.e("BluetoothRepo", "Scanner is null - adapter exists: ${bluetoothAdapter != null}")
             close(IllegalStateException("BLE scanner not available"))
             return@callbackFlow
         }
 
         val missing = getMissingPermissions()
         if (missing.isNotEmpty()) {
+            android.util.Log.e("BluetoothRepo", "Missing permissions: $missing")
             close(IllegalStateException("Missing permissions: $missing"))
             return@callbackFlow
         }
 
         if (!isBluetoothEnabled()) {
+            android.util.Log.e("BluetoothRepo", "Bluetooth is disabled")
             close(IllegalStateException("Bluetooth is disabled"))
             return@callbackFlow
         }
+
+        // CRITICAL: Check if location is enabled (required for BLE scanning)
+        if (!isLocationEnabled()) {
+            android.util.Log.e("BluetoothRepo", "Location services are disabled - BLE scanning requires location to be enabled")
+            close(IllegalStateException("Location services must be enabled for BLE scanning"))
+            return@callbackFlow
+        }
+
+        android.util.Log.d("BluetoothRepo", "All pre-checks passed. Starting BLE scan...")
 
         // Stop previous scan if active
         activeScannerRef?.stopScan(activeScanCallback)
@@ -125,11 +146,16 @@ class BluetoothRepository(
 
         val devices = mutableMapOf<String, BluetoothDevice>()
 
+        // Emit initial empty list to signal scan started
+        trySend(emptyList()).isSuccess
+        android.util.Log.d("BluetoothRepo", "Emitted initial empty device list")
+
         val scanCallback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
+                android.util.Log.d("BluetoothRepo", "Device found: name=${result?.device?.name ?: "Unknown"}, address=${result?.device?.address}, rssi=${result?.rssi}")
                 result?.let {
                     val btDevice = BluetoothDevice(
-                        name = it.device.name,
+                        name = it.device.name ?: "Unknown",
                         address = it.device.address,
                         rssi = it.rssi,
                         deviceType = DeviceType.BLE,
@@ -137,35 +163,61 @@ class BluetoothRepository(
                     )
                     devices[btDevice.address] = btDevice
                     _discoveredDevices.value = devices.values.toList()
-                    trySend(devices.values.toList())
+                    trySend(devices.values.toList()).isSuccess
                 }
             }
 
             override fun onScanFailed(errorCode: Int) {
-                close(Exception("Scan failed with error: $errorCode"))
+                val errorMsg = when (errorCode) {
+                    ScanCallback.SCAN_FAILED_ALREADY_STARTED -> "Scan already started"
+                    ScanCallback.SCAN_FAILED_APPLICATION_REGISTRATION_FAILED -> "App registration failed"
+                    ScanCallback.SCAN_FAILED_INTERNAL_ERROR -> "Internal error"
+                    ScanCallback.SCAN_FAILED_FEATURE_UNSUPPORTED -> "Feature unsupported"
+                    else -> "Unknown error code: $errorCode"
+                }
+                android.util.Log.e("BluetoothRepo", "Scan failed: $errorMsg")
+                close(Exception("Scan failed with error: $errorCode ($errorMsg)"))
             }
         }
 
         activeScanCallback = scanCallback
 
+        android.util.Log.d("BluetoothRepo", "Starting BLE scan with LOW_LATENCY mode...")
+
         try {
             scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), scanCallback)
+            android.util.Log.d("BluetoothRepo", "BLE scan started successfully")
         } catch (se: SecurityException) {
+            android.util.Log.e("BluetoothRepo", "Security exception starting scan: ${se.message}")
             close(se)
+            return@callbackFlow
+        } catch (e: Exception) {
+            android.util.Log.e("BluetoothRepo", "Exception starting scan: ${e.message}")
+            close(e)
             return@callbackFlow
         }
 
         kotlinx.coroutines.delay(durationMs)
-        try { scanner.stopScan(scanCallback) } catch (_: Throwable) {}
+        android.util.Log.d("BluetoothRepo", "Scan duration ${durationMs}ms completed. Found ${devices.size} BLE devices")
+
+        try {
+            scanner.stopScan(scanCallback)
+            android.util.Log.d("BluetoothRepo", "Scan stopped")
+        } catch (_: Throwable) {}
 
         // Include system paired devices
         val pairedDevices = getSystemPairedDevices()
+        android.util.Log.d("BluetoothRepo", "Found ${pairedDevices.size} paired devices")
+
         val allDevices = devices.values.toMutableList()
         allDevices.addAll(pairedDevices.filter { !devices.containsKey(it.address) })
         _discoveredDevices.value = allDevices
-        trySend(allDevices)
+
+        android.util.Log.d("BluetoothRepo", "Total devices (BLE + paired): ${allDevices.size}")
+        trySend(allDevices).isSuccess
 
         awaitClose {
+            android.util.Log.d("BluetoothRepo", "Scan flow closed")
             try { scanner.stopScan(scanCallback) } catch (_: Throwable) {}
             if (activeScanCallback === scanCallback) {
                 activeScanCallback = null

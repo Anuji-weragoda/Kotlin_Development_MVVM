@@ -55,10 +55,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        ChannelManager.dispose()
+
     }
 
-    // Forward permission results to ChannelManager so native handlers can react
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
