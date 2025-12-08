@@ -3,7 +3,6 @@ package com.example.androidapp
 import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import com.example.androidapp.data.local.BluetoothPreferences
 import com.example.androidapp.data.repository.BluetoothRepository
@@ -329,7 +328,7 @@ class BluetoothHandler(
                     android.util.Log.w("BluetoothHandler", "invokeMethod onScanError failed: ${t.message}")
                 }
             } finally {
-                // Clean up the scan scope when done
+
                 scanJob.cancel()
             }
         }
@@ -362,7 +361,7 @@ class BluetoothHandler(
     }
 
     private fun observeConnectionStatus() {
-        // Scope already uses Main dispatcher, safe to invoke MethodChannel
+
         ensureActiveScope().launch {
             repository.connectionStatus.collectLatest { status ->
                 val statusMap = mapOf(

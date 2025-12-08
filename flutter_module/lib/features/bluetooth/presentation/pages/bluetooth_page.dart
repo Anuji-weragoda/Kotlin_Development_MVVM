@@ -112,62 +112,6 @@ class _BluetoothPageState extends State<BluetoothPage> {
 
               _buildConnectionStatus(),
 
-              // DIAGNOSTIC BUTTON
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final cubit = context.read<BluetoothCubit>();
-                    try {
-                      final diag = await cubit.runDiagnostics();
-                      debugPrint('BT_DIAG native diagnostic => $diag');
-
-                      final hasPerm = await cubit.repository.hasPermissions();
-                      debugPrint('BT_DIAG hasPermissions => $hasPerm');
-
-                      final enabled = await cubit.repository.isBluetoothEnabled();
-                      debugPrint('BT_DIAG isBluetoothEnabled => $enabled');
-
-                      final sub = cubit.repository
-                          .startScan(duration: 10000)
-                          .listen((devices) {
-                        debugPrint(
-                            'BT_STREAM found ${devices.length}: $devices');
-                      });
-
-                      await Future.delayed(const Duration(seconds: 12));
-                      await sub.cancel();
-
-                      if (!mounted) return;
-                      await showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('BLE Diagnostic'),
-                          content: Text(
-                            'diag: $diag\n'
-                                'hasPermissions: $hasPerm\n'
-                                'isEnabled: $enabled',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('OK'),
-                            ),
-                          ],
-                        ),
-                      );
-                    } catch (e, st) {
-                      debugPrint('BT debug failed: $e\n$st');
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Diagnostics failed: $e')),
-                      );
-                    }
-                  },
-                  child: const Text('Run BLE Diagnostic'),
-                ),
-              ),
-
               _buildScanButton(),
               Expanded(child: _buildDeviceList(state)),
             ],
