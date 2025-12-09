@@ -24,6 +24,8 @@ timber = "5.0.1"
 coroutines = "1.10.2"
 desugar = "2.1.5"
 nav = "2.9.6"
+firebaseCrashlytics = "20.0.3"
+googleFirebaseCrashlytics = "3.0.6"
 
 
 
@@ -58,6 +60,7 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 core-desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
+firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics", version.ref = "firebaseCrashlytics" }
 
 
 
@@ -66,4 +69,5 @@ core-desugar = { group = "com.android.tools", name = "desugar_jdk_libs", version
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 androidx-navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "nav" }
+google-firebase-crashlytics = { id = "com.google.firebase.crashlytics", version.ref = "googleFirebaseCrashlytics" }
 

@@ -2,6 +2,10 @@ package com.example.androidapp.ui
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -66,6 +70,37 @@ class MainActivity : AppCompatActivity() {
         // Log FCM token
         val fcmToken = (application as AuthApplication).getFCMToken()
         Timber.d("Current FCM Token: $fcmToken")
+
+        // Add test crash button for Firebase Crashlytics testing
+        addTestCrashButton()
+    }
+
+    private fun addTestCrashButton() {
+        // Creates a button that mimics a crash when pressed
+        val crashButton = Button(this)
+        crashButton.text = "Test Crash"
+        crashButton.setTextSize(16f)
+        crashButton.setPadding(48, 32, 48, 32)
+        crashButton.setBackgroundColor(0xFFFF5252.toInt()) // Red color
+        crashButton.setTextColor(0xFFFFFFFF.toInt()) // White text
+
+        crashButton.setOnClickListener {
+            Timber.w("Test crash button clicked - forcing crash!")
+            Toast.makeText(this, "Crashing in 3...2...1...", Toast.LENGTH_SHORT).show()
+            throw RuntimeException("Test Crash") // Force a crash
+        }
+
+        // Use FrameLayout.LayoutParams with BOTTOM and CENTER_HORIZONTAL gravity
+        val params = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            bottomMargin = 100 // 100px from bottom
+        }
+
+        addContentView(crashButton, params)
+        Timber.d("Test crash button added to MainActivity at bottom center")
     }
 
     private fun requestNotificationPermission() {
