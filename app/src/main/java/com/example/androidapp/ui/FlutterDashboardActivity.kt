@@ -52,12 +52,22 @@ class FlutterDashboardActivity : FlutterActivity() {
     private fun setupMethodChannels(engine: FlutterEngine, email: String, userId: String, token: String) {
         val channel = MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL_NAME)
 
+        // Get FCM token
+        val fcmToken = (application as AuthApplication).getFCMToken()
+
         // Send initial user session
-        val userSession = mapOf(
+        val userSession = mutableMapOf(
             "email" to email,
             "userId" to userId,
             "accessToken" to token
         )
+
+        // Add FCM token if available
+        fcmToken?.let {
+            userSession["fcmToken"] = it
+            Timber.d("FCM token added to user session: ${it.take(20)}...")
+        }
+
         channel.invokeMethod("updateUserSession", userSession)
         Timber.d("User session sent to Flutter via MethodChannel")
         Log.d(TAG, "User session sent to Flutter via MethodChannel")

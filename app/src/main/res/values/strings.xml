@@ -23,6 +23,16 @@
     <string name="email_verify_des">Enter the 6-digit code sent to your email</string>
     <string name="hint"> 000000</string>
 
+    <!-- FCM Notifications -->
+    <string name="default_notification_channel_id">general_channel</string>
+    <string name="default_notification_channel_name">General Notifications</string>
+    <string name="fcm_message">FCM Message</string>
+
+
+
+
+
+
 
 
 
