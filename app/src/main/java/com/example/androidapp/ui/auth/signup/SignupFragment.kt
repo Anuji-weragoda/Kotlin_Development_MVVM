@@ -13,12 +13,15 @@ import com.example.androidapp.AuthApplication
 import com.example.androidapp.databinding.FragmentSignupBinding
 import com.example.androidapp.ui.factory.ViewModelFactory
 import com.example.androidapp.R
-import kotlinx.coroutines.flow.collect
+import com.example.androidapp.utils.AnalyticsHelper
+import com.google.firebase.analytics.FirebaseAnalytics
 
 class SignupFragment : Fragment() {
 
     private var _binding: FragmentSignupBinding? = null
     private val binding get() = _binding!!
+
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
     private val viewModel: SignupViewModel by viewModels {
         ViewModelFactory((requireActivity().application as AuthApplication).authRepository)
@@ -30,11 +33,18 @@ class SignupFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentSignupBinding.inflate(inflater, container, false)
+
+        // Initialize Firebase Analytics
+        firebaseAnalytics = (requireActivity().application as AuthApplication).firebaseAnalytics
+
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Log screen view
+        AnalyticsHelper.logScreenView(firebaseAnalytics, "SignupScreen")
 
         setupClickListeners()
         observeSignupState()
@@ -42,6 +52,9 @@ class SignupFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.signupButton.setOnClickListener {
+            // Log signup button click
+            AnalyticsHelper.logButtonClick(firebaseAnalytics, "signup_button", "SignupScreen")
+
             val fullName = binding.fullNameEditText.text.toString()
             val email = binding.emailEditText.text.toString()
             val password = binding.passwordEditText.text.toString()
@@ -51,6 +64,9 @@ class SignupFragment : Fragment() {
         }
 
         binding.loginTextView.setOnClickListener {
+            // Log navigation back to login
+            AnalyticsHelper.logButtonClick(firebaseAnalytics, "back_to_login", "SignupScreen")
+
             findNavController().navigateUp()
         }
     }
@@ -67,6 +83,10 @@ class SignupFragment : Fragment() {
                     }
                     is SignupViewModel.SignupState.Success -> {
                         showLoading(false)
+
+                        // Log successful signup
+                        AnalyticsHelper.logSignUp(firebaseAnalytics, "email")
+
                         Toast.makeText(
                             requireContext(),
                             "Signup successful!",
@@ -84,6 +104,14 @@ class SignupFragment : Fragment() {
                     }
                     is SignupViewModel.SignupState.Error -> {
                         showLoading(false)
+
+                        // Log signup failure
+                        AnalyticsHelper.logCustomEvent(
+                            firebaseAnalytics,
+                            "signup_failed",
+                            mapOf<String, Any>("error_message" to state.message as Any)
+                        )
+
                         Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                     }
                 }

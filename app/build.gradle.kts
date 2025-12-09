@@ -4,6 +4,7 @@ plugins {
     id("kotlin-kapt")
     id("kotlin-parcelize")
     alias(libs.plugins.androidx.navigation.safe.args)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -127,4 +128,8 @@ dependencies {
     implementation("com.adyen.checkout:drop-in-compose:5.15.0")
     implementation("com.adyen.checkout:sessions-core:5.15.0")
     implementation("com.adyen.checkout:card:5.15.0")
+
+    //Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-analytics")
 }

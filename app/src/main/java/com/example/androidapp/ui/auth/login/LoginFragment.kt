@@ -15,6 +15,8 @@ import com.example.androidapp.R
 import com.example.androidapp.databinding.FragmentLoginBinding
 import com.example.androidapp.ui.FlutterDashboardActivity
 import com.example.androidapp.ui.factory.ViewModelFactory
+import com.example.androidapp.utils.AnalyticsHelper
+import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -24,6 +26,8 @@ class LoginFragment : Fragment() {
 
     private var _binding: FragmentLoginBinding? = null
     private val binding get() = _binding!!
+
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
     private val authRepository by lazy {
         (requireActivity().application as AuthApplication).authRepository
@@ -39,23 +43,37 @@ class LoginFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentLoginBinding.inflate(inflater, container, false)
+
+        // Initialize Firebase Analytics
+        firebaseAnalytics = (requireActivity().application as AuthApplication).firebaseAnalytics
+
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Log screen view
+        AnalyticsHelper.logScreenView(firebaseAnalytics, "LoginScreen")
+
         setupClickListeners()
         observeViewModel()
     }
 
     private fun setupClickListeners() {
         binding.loginButton.setOnClickListener {
+            // Log button click
+            AnalyticsHelper.logButtonClick(firebaseAnalytics, "login_button", "LoginScreen")
+
             val email = binding.emailEditText.text.toString()
             val password = binding.passwordEditText.text.toString()
             viewModel.login(email, password)
         }
 
         binding.signupTextView.setOnClickListener {
+            // Log navigation to signup
+            AnalyticsHelper.logButtonClick(firebaseAnalytics, "signup_navigation", "LoginScreen")
+
             findNavController().navigate(R.id.action_loginFragment_to_signupFragment)
         }
     }
@@ -67,11 +85,23 @@ class LoginFragment : Fragment() {
                 is LoginViewModel.LoginState.Loading -> showLoading(true)
                 is LoginViewModel.LoginState.Success -> {
                     showLoading(false)
+
+                    // Log successful login
+                    AnalyticsHelper.logLogin(firebaseAnalytics, "email")
+
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                     navigateToFlutterDashboard()
                 }
                 is LoginViewModel.LoginState.Error -> {
                     showLoading(false)
+
+                    // Log login failure
+                    AnalyticsHelper.logCustomEvent(
+                        firebaseAnalytics,
+                        "login_failed",
+                        mapOf("error_message" to state.message)
+                    )
+
                     Toast.makeText(requireContext(), state.message, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -102,6 +132,13 @@ class LoginFragment : Fragment() {
                     Toast.makeText(requireContext(), "Error: User session incomplete", Toast.LENGTH_LONG).show()
                     return@launch
                 }
+
+                // Log Flutter Dashboard navigation
+                AnalyticsHelper.logCustomEvent(
+                    firebaseAnalytics,
+                    "flutter_dashboard_opened",
+                    mapOf<String, Any>("user_id" to userId as Any)
+                )
 
                 // Store session for Flutter usage
                 com.example.androidapp.ChannelManager.setUserSession(email!!, userId!!, token!!)

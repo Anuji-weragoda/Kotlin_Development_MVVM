@@ -7,8 +7,11 @@ import androidx.lifecycle.lifecycleScope
 import com.adyen.checkout.dropin.DropIn
 import com.adyen.checkout.dropin.SessionDropInCallback
 import com.adyen.checkout.dropin.SessionDropInResult
+import com.example.androidapp.AuthApplication
 import com.example.androidapp.data.remote.RetrofitClient
 import com.example.androidapp.data.repository.AdyenPaymentRepository
+import com.example.androidapp.utils.AnalyticsHelper
+import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -16,6 +19,7 @@ class PaymentActivity : AppCompatActivity() {
 
     private lateinit var paymentRepository: AdyenPaymentRepository
     private lateinit var dropInLauncher: androidx.activity.result.ActivityResultLauncher<*>
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
     companion object {
         const val EXTRA_AMOUNT = "extra_amount"
@@ -27,6 +31,9 @@ class PaymentActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Firebase Analytics
+        firebaseAnalytics = (application as AuthApplication).firebaseAnalytics
 
         // Initialize repository
         val apiService = RetrofitClient.getApiService()
@@ -45,6 +52,16 @@ class PaymentActivity : AppCompatActivity() {
             handleError("Invalid payment parameters")
             return
         }
+
+        // Log payment initiated
+        AnalyticsHelper.logCustomEvent(
+            firebaseAnalytics,
+            "payment_initiated",
+            mapOf<String, Any>(
+                "amount" to amount as Any,
+                "currency" to currency as Any
+            )
+        )
 
         startPaymentFlow(amount, currency)
     }
@@ -122,6 +139,17 @@ class PaymentActivity : AppCompatActivity() {
             is SessionDropInResult.Finished -> {
                 val result = dropInResult.result
                 Timber.d("Payment successful: ${result.resultCode}")
+
+                // Log payment success
+                AnalyticsHelper.logCustomEvent(
+                    firebaseAnalytics,
+                    "payment_success",
+                    mapOf<String, Any>(
+                        "transaction_id" to (result.sessionId ?: "") as Any,
+                        "result_code" to result.resultCode as Any
+                    )
+                )
+
                 val intent = Intent().apply {
                     putExtra("result", RESULT_PAYMENT_SUCCESS)
                     putExtra("message", "Payment completed")
@@ -133,6 +161,14 @@ class PaymentActivity : AppCompatActivity() {
             }
             is SessionDropInResult.CancelledByUser -> {
                 Timber.d("Payment cancelled by user")
+
+                // Log payment cancellation
+                AnalyticsHelper.logCustomEvent(
+                    firebaseAnalytics,
+                    "payment_cancelled",
+                    null
+                )
+
                 val intent = Intent().apply {
                     putExtra("result", RESULT_PAYMENT_CANCELLED)
                     putExtra("message", "Payment cancelled")
@@ -143,6 +179,14 @@ class PaymentActivity : AppCompatActivity() {
             is SessionDropInResult.Error -> {
                 val errorMessage = dropInResult.reason?.let { "Payment error: $it" } ?: "Payment error"
                 Timber.e("Payment error: $errorMessage")
+
+                // Log payment failure
+                AnalyticsHelper.logCustomEvent(
+                    firebaseAnalytics,
+                    "payment_failed",
+                    mapOf<String, Any>("error_message" to errorMessage as Any)
+                )
+
                 val intent = Intent().apply {
                     putExtra("result", RESULT_PAYMENT_FAILURE)
                     putExtra("message", errorMessage)

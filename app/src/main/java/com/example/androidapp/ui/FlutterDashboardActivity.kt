@@ -108,24 +108,24 @@ class FlutterDashboardActivity : FlutterActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         Timber.d("FlutterDashboardActivity onActivityResult: requestCode=$requestCode, resultCode=$resultCode")
 
-        // Forward result to ChannelManager
+
         ChannelManager.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onResume() {
         super.onResume()
-        // Ensure this activity is set as current when resumed
+
         ChannelManager.setCurrentActivity(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Clear the activity reference when destroyed
+
         ChannelManager.setCurrentActivity(null)
     }
 
-    // Return cached FlutterEngine
+
     override fun getCachedEngineId(): String = ENGINE_ID
 
-    // No need to override configureFlutterEngine when using cached engine
+
 }

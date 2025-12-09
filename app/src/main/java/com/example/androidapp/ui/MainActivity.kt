@@ -6,10 +6,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.androidapp.AuthApplication
 import com.example.androidapp.ChannelManager
 import com.example.androidapp.databinding.ActivityMainBinding
 import com.example.androidapp.data.remote.RetrofitClient
 import com.example.androidapp.data.repository.AdyenPaymentRepository
+import com.example.androidapp.utils.AnalyticsHelper
+import com.google.firebase.analytics.FirebaseAnalytics
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -18,12 +21,16 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var flutterEngine: FlutterEngine
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
     private val ENGINE_ID = "main"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Get Firebase Analytics instance
+        firebaseAnalytics = (application as AuthApplication).firebaseAnalytics
 
         enableEdgeToEdge()
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
@@ -41,6 +48,9 @@ class MainActivity : AppCompatActivity() {
 
         // Cache the engine for reuse
         FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+
+        // Log screen view
+        AnalyticsHelper.logScreenView(firebaseAnalytics, "MainActivity")
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
