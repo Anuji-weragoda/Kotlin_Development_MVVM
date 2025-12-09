@@ -17,6 +17,14 @@
             app:popUpToInclusive="true"
             app:enterAnim="@android:anim/fade_in"
             app:exitAnim="@android:anim/fade_out" />
+
+        <action
+            android:id="@+id/action_splashFragment_to_homeFragment"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/splashFragment"
+            app:popUpToInclusive="true"
+            app:enterAnim="@android:anim/fade_in"
+            app:exitAnim="@android:anim/fade_out" />
     </fragment>
 
     <!-- Login Fragment -->
@@ -73,6 +81,13 @@
         <action
             android:id="@+id/action_verifyEmailFragment_to_homeFragment"
             app:destination="@id/homeFragment"
+            app:popUpTo="@id/signupFragment"
+            app:popUpToInclusive="true"/>
+
+        <!-- Navigate to Login after verification (recommended flow) -->
+        <action
+            android:id="@+id/action_verifyEmailFragment_to_loginFragment"
+            app:destination="@id/loginFragment"
             app:popUpTo="@id/signupFragment"
             app:popUpToInclusive="true"/>
 

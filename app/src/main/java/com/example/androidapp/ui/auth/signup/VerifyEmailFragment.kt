@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.example.androidapp.AuthApplication
+import com.example.androidapp.R
 import com.example.androidapp.databinding.FragmentVerifyEmailBinding
 import com.example.androidapp.ui.factory.ViewModelFactory
 
@@ -60,12 +61,11 @@ class VerifyEmailFragment : Fragment() {
 
                 is VerifyEmailViewModel.VerifyState.Success -> {
                     binding.verifyButton.isEnabled = true
-                    Toast.makeText(requireContext(), "Email verified!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Email verified! Please login to continue.", Toast.LENGTH_LONG).show()
 
-                    // Navigate directly to Home screen
-                    findNavController().navigate(
-                        VerifyEmailFragmentDirections.actionVerifyEmailFragmentToHomeFragment()
-                    )
+                    // Navigate to Login screen (user needs to login after verification)
+                    // Tokens are not saved during signup, only during login
+                    findNavController().navigate(R.id.action_verifyEmailFragment_to_loginFragment)
                 }
 
                 is VerifyEmailViewModel.VerifyState.Error -> {
