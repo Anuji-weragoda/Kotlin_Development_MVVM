@@ -1,8 +1,6 @@
 package com.example.androidapp.data.local
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import com.example.androidapp.data.model.Country
@@ -16,4 +14,7 @@ interface CountryDao {
 
     @Query("SELECT * FROM countries ORDER BY nameCommon ASC")
     fun getCountries(): Flow<List<Country>>
+
+    @Query("DELETE FROM countries")
+    suspend fun deleteAll()
 }

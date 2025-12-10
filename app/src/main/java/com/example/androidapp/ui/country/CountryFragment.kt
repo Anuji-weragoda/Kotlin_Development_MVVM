@@ -9,12 +9,14 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.androidapp.data.local.AppDatabase
 import com.example.androidapp.data.remote.api.CountryApi
 import com.example.androidapp.data.repository.CountryRepository
 import com.example.androidapp.databinding.FragmentCountryBinding
 import com.example.androidapp.ui.factory.CountryViewModelFactory
+import kotlinx.coroutines.launch
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -37,6 +39,13 @@ class CountryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // TESTING SSL PINNING: Clear database to force API call
+        // TODO: Remove this after testing SSL pinning
+        lifecycleScope.launch {
+            AppDatabase.getDatabase(requireContext()).countryDao().deleteAll()
+            android.util.Log.d("CountryFragment", "🗑 Database cleared - will fetch from API to test SSL pinning")
+        }
+
         setupRecyclerView()
         setupViewModel()
         setupSearch()
@@ -51,8 +60,12 @@ class CountryFragment : Fragment() {
     }
 
     private fun setupViewModel() {
+        // Use secure OkHttpClient with SSL certificate pinning
+        val secureClient = com.example.androidapp.data.remote.ssl.SslConfig.createSecureOkHttpClient()
+
         val retrofit = Retrofit.Builder()
             .baseUrl("https://restcountries.com/")
+            .client(secureClient) // Add secure client with certificate pinning
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
@@ -82,18 +95,19 @@ class CountryFragment : Fragment() {
     }
 
     private fun observeData() {
-
+        android.util.Log.d("CountryFragment", "Setting up country observer...")
         binding.progressBar.isVisible = true
 
         viewModel.countries.observe(viewLifecycleOwner) { countries ->
+            android.util.Log.d("CountryFragment", "Countries updated: ${countries.size} items")
             if (countries.isNotEmpty()) {
-
+                android.util.Log.d("CountryFragment", "✅ Countries loaded from database (cached)")
                 binding.progressBar.isVisible = false
                 adapter.setData(countries)
                 binding.countryCountText.text = "${countries.size} countries available"
                 updateEmptyState()
             } else {
-
+                android.util.Log.d("CountryFragment", "⚠ No cached countries, fetching from API...")
                 viewModel.fetchCountries()
             }
         }
