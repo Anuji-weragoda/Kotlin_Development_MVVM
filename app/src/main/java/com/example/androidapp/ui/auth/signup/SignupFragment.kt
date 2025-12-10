@@ -13,7 +13,7 @@ import com.example.androidapp.AuthApplication
 import com.example.androidapp.databinding.FragmentSignupBinding
 import com.example.androidapp.ui.factory.ViewModelFactory
 import com.example.androidapp.R
-import com.example.androidapp.utils.AnalyticsHelper
+import com.example.androidapp.ui.util.AnalyticsHelper
 import com.google.firebase.analytics.FirebaseAnalytics
 
 class SignupFragment : Fragment() {

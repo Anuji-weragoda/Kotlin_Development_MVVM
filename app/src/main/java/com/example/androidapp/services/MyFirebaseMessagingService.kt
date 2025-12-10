@@ -19,7 +19,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.androidapp.AuthApplication
 import com.example.androidapp.R
 import com.example.androidapp.ui.MainActivity
-import com.example.androidapp.utils.FCMHelper
+import com.example.androidapp.ui.util.FCMHelper
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import timber.log.Timber

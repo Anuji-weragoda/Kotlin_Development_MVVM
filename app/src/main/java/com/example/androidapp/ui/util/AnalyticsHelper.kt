@@ -1,4 +1,4 @@
-package com.example.androidapp.utils
+package com.example.androidapp.ui.util
 
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
@@ -91,4 +91,3 @@ object AnalyticsHelper {
         analytics.logEvent(eventName, bundle)
     }
 }
-

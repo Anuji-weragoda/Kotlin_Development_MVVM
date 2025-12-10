@@ -10,7 +10,7 @@ import com.adyen.checkout.dropin.SessionDropInResult
 import com.example.androidapp.AuthApplication
 import com.example.androidapp.data.remote.RetrofitClient
 import com.example.androidapp.data.repository.AdyenPaymentRepository
-import com.example.androidapp.utils.AnalyticsHelper
+import com.example.androidapp.ui.util.AnalyticsHelper
 import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.launch
 import timber.log.Timber

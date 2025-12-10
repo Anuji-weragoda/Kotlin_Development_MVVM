@@ -1,4 +1,4 @@
-package com.example.androidapp.utils
+package com.example.androidapp.ui.util
 
 import android.Manifest
 import android.app.Activity
@@ -44,4 +44,3 @@ object PermissionHelper {
         }
     }
 }
-

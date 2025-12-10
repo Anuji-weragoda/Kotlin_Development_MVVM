@@ -15,7 +15,7 @@ import com.example.androidapp.R
 import com.example.androidapp.databinding.FragmentLoginBinding
 import com.example.androidapp.ui.FlutterDashboardActivity
 import com.example.androidapp.ui.factory.ViewModelFactory
-import com.example.androidapp.utils.AnalyticsHelper
+import com.example.androidapp.ui.util.AnalyticsHelper
 import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first

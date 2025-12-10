@@ -1,4 +1,4 @@
-package com.example.androidapp.utils
+package com.example.androidapp.ui.util
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -13,6 +13,7 @@ import com.example.androidapp.ui.MainActivity
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.messaging.FirebaseMessaging
 import timber.log.Timber
+import kotlin.or
 
 /**
  * Helper class for Firebase Cloud Messaging operations and notifications
@@ -107,10 +108,10 @@ object FCMHelper {
         FirebaseMessaging.getInstance().subscribeToTopic(topic)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Timber.d("Subscribed to topic: $topic")
+                    Timber.Forest.d("Subscribed to topic: $topic")
                     onComplete?.invoke(true)
                 } else {
-                    Timber.e(task.exception, "Failed to subscribe to topic: $topic")
+                    Timber.Forest.e(task.exception, "Failed to subscribe to topic: $topic")
                     onComplete?.invoke(false)
                 }
             }
@@ -123,10 +124,10 @@ object FCMHelper {
         FirebaseMessaging.getInstance().unsubscribeFromTopic(topic)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Timber.d("Unsubscribed from topic: $topic")
+                    Timber.Forest.d("Unsubscribed from topic: $topic")
                     onComplete?.invoke(true)
                 } else {
-                    Timber.e(task.exception, "Failed to unsubscribe from topic: $topic")
+                    Timber.Forest.e(task.exception, "Failed to unsubscribe from topic: $topic")
                     onComplete?.invoke(false)
                 }
             }
@@ -138,14 +139,14 @@ object FCMHelper {
     fun getToken(onComplete: (String?) -> Unit) {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
-                Timber.w(task.exception, "Fetching FCM registration token failed")
+                Timber.Forest.w(task.exception, "Fetching FCM registration token failed")
                 onComplete(null)
                 return@addOnCompleteListener
             }
 
             // Get new FCM registration token
             val token = task.result
-            Timber.d("FCM Token: $token")
+            Timber.Forest.d("FCM Token: $token")
             onComplete(token)
         }
     }
@@ -164,7 +165,7 @@ object FCMHelper {
             putLong("timestamp", System.currentTimeMillis())
         }
         firebaseAnalytics.logEvent("notification_received", bundle)
-        Timber.d("Logged notification_received event: $notificationType")
+        Timber.Forest.d("Logged notification_received event: $notificationType")
     }
 
     /**
@@ -181,7 +182,7 @@ object FCMHelper {
             putLong("timestamp", System.currentTimeMillis())
         }
         firebaseAnalytics.logEvent("notification_opened", bundle)
-        Timber.d("Logged notification_opened event: $notificationType")
+        Timber.Forest.d("Logged notification_opened event: $notificationType")
     }
 
     /**
@@ -191,10 +192,10 @@ object FCMHelper {
         FirebaseMessaging.getInstance().deleteToken()
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    Timber.d("FCM token deleted")
+                    Timber.Forest.d("FCM token deleted")
                     onComplete?.invoke(true)
                 } else {
-                    Timber.e(task.exception, "Failed to delete FCM token")
+                    Timber.Forest.e(task.exception, "Failed to delete FCM token")
                     onComplete?.invoke(false)
                 }
             }
@@ -223,4 +224,3 @@ object FCMHelper {
         const val ALERT = "alert"
     }
 }
-

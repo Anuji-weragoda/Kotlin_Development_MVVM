@@ -16,8 +16,8 @@ import com.example.androidapp.ChannelManager
 import com.example.androidapp.databinding.ActivityMainBinding
 import com.example.androidapp.data.remote.RetrofitClient
 import com.example.androidapp.data.repository.AdyenPaymentRepository
-import com.example.androidapp.utils.AnalyticsHelper
-import com.example.androidapp.utils.PermissionHelper
+import com.example.androidapp.ui.util.AnalyticsHelper
+import com.example.androidapp.ui.util.PermissionHelper
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.analytics.FirebaseAnalytics

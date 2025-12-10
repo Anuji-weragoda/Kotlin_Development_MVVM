@@ -6,7 +6,7 @@ import timber.log.Timber
 import com.example.androidapp.data.local.TokenManager
 import com.example.androidapp.data.remote.RetrofitClient
 import com.example.androidapp.data.repository.AuthRepository
-import com.example.androidapp.utils.FCMHelper
+import com.example.androidapp.ui.util.FCMHelper
 import com.google.firebase.FirebaseApp
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.messaging.FirebaseMessaging
