@@ -101,7 +101,7 @@ class CountryFragment : Fragment() {
         viewModel.countries.observe(viewLifecycleOwner) { countries ->
             android.util.Log.d("CountryFragment", "Countries updated: ${countries.size} items")
             if (countries.isNotEmpty()) {
-                android.util.Log.d("CountryFragment", "✅ Countries loaded from database (cached)")
+                android.util.Log.d("CountryFragment", " Countries loaded from database (cached)")
                 binding.progressBar.isVisible = false
                 adapter.setData(countries)
                 binding.countryCountText.text = "${countries.size} countries available"
