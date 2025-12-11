@@ -2,7 +2,6 @@ package com.example.androidapp
 
 import android.app.Activity
 import android.content.Context
-import android.app.Activity
 import android.content.Intent
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -17,14 +16,13 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
     private var dashboardChannel: MethodChannel? = null
     private var bluetoothChannel: MethodChannel? = null
     private var wifiChannel: MethodChannel? = null
+    private var paymentChannel: MethodChannel? = null
 
     @Suppress("StaticFieldLeak")
     private var bluetoothHandler: BluetoothHandler? = null
     @Suppress("StaticFieldLeak")
     private var wifiHandler: WifiHandler? = null
 
-    private var dashboardChannel: MethodChannel? = null
-    private var paymentChannel: MethodChannel? = null
     private var userSession: Map<String, String>? = null
     private var pendingPaymentResult: MethodChannel.Result? = null
     private var currentActivityRef: WeakReference<Activity>? = null
@@ -32,28 +30,26 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
     private const val DASHBOARD_CHANNEL = "com.example.flutter/dashboard"
     private const val PAYMENT_CHANNEL = "com.example.app/adyen"
     private const val PAYMENT_REQUEST_CODE = 1001
-
-    private const val DASHBOARD_CHANNEL = "com.example.flutter/dashboard"
     private const val BLUETOOTH_CHANNEL = "com.example.androidapp/bluetooth"
     private const val WIFI_CHANNEL = "com.example.androidapp/wifi"
+
 
     fun setCurrentActivity(activity: Activity?) {
         currentActivityRef = if (activity != null) WeakReference(activity) else null
         Timber.d("Current activity set to: ${activity?.javaClass?.simpleName}")
     }
 
-    fun setup(engine: FlutterEngine, activity: Activity) {
-
     fun setup(engine: FlutterEngine, context: Context) {
         flutterEngine = engine
-        currentActivityRef = WeakReference(activity)
         Timber.d("ChannelManager.setup called; engineHash=%s, context=%s", engine.hashCode(), context.javaClass.simpleName)
         val appContext = context.applicationContext // Safe context
 
-        // --- Dashboard channel ---
-        dashboardChannel = MethodChannel(engine.dartExecutor.binaryMessenger, DASHBOARD_CHANNEL)
-        dashboardChannel?.setMethodCallHandler { call, result ->
-            Timber.d("ChannelManager handler called: ${call.method}")
+        // If context is an Activity, store it and use it
+        val activity = if (context is Activity) {
+            currentActivityRef = WeakReference(context)
+            context
+        } else null
+
         // Dashboard Channel
         dashboardChannel = MethodChannel(engine.dartExecutor.binaryMessenger, DASHBOARD_CHANNEL)
         dashboardChannel?.setMethodCallHandler { call, result ->
@@ -87,9 +83,7 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
                         return@setMethodCallHandler
                     }
 
-
                     pendingPaymentResult = result
-
 
                     val intent = Intent(activityToUse, PaymentActivity::class.java).apply {
                         putExtra(PaymentActivity.EXTRA_AMOUNT, amount)
@@ -99,6 +93,22 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
                 }
                 else -> result.notImplemented()
             }
+        }
+
+        // Bluetooth Channel
+        bluetoothChannel = MethodChannel(engine.dartExecutor.binaryMessenger, BLUETOOTH_CHANNEL)
+        bluetoothHandler = if (activity != null) {
+            BluetoothHandler(activity, bluetoothChannel!!)
+        } else {
+            BluetoothHandler(appContext, bluetoothChannel!!)
+        }
+
+        // WiFi Channel
+        wifiChannel = MethodChannel(engine.dartExecutor.binaryMessenger, WIFI_CHANNEL)
+        wifiHandler = if (activity != null) {
+            WifiHandler(activity, wifiChannel!!)
+        } else {
+            WifiHandler(appContext, wifiChannel!!)
         }
     }
 
@@ -148,18 +158,6 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
             return true
         }
         return false
-
-        // Pass the Activity (if available) to handlers so they can request runtime permissions.
-        // The callers currently pass MainActivity as the `context` param in setup(), so try to
-        // cast to Activity; fall back to application context if not an Activity.
-        val activity = if (context is Activity) context else null
-
-        bluetoothChannel = MethodChannel(engine.dartExecutor.binaryMessenger, BLUETOOTH_CHANNEL)
-        // If we have an Activity, pass it; otherwise pass applicationContext as before.
-        bluetoothHandler = if (activity != null) BluetoothHandler(activity, bluetoothChannel!!) else BluetoothHandler(appContext, bluetoothChannel!!)
-
-        wifiChannel = MethodChannel(engine.dartExecutor.binaryMessenger, WIFI_CHANNEL)
-        wifiHandler = if (activity != null) WifiHandler(activity, wifiChannel!!) else WifiHandler(appContext, wifiChannel!!)
     }
 
     // Forward Activity permission results to handlers so they can notify Flutter

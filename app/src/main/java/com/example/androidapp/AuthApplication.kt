@@ -1,6 +1,7 @@
 package com.example.androidapp
 
 import android.app.Application
+import android.os.StrictMode
 import com.google.android.gms.tasks.OnCompleteListener
 import timber.log.Timber
 import com.example.androidapp.data.local.TokenManager
@@ -25,46 +26,59 @@ class AuthApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Firebase
-        FirebaseApp.initializeApp(this)
+        // Enable StrictMode in debug builds to detect blocking operations
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                StrictMode.VmPolicy.Builder()
+                    .detectAll()
+                    .penaltyLog()
+                    .build()
+            )
+        }
 
-        // Initialize Firebase Analytics
-        firebaseAnalytics = FirebaseAnalytics.getInstance(this)
-
-        // Enable Analytics collection
-        firebaseAnalytics.setAnalyticsCollectionEnabled(true)
-
-        // Initialize Firebase Cloud Messaging
-        initializeFCM()
-
-        // Create notification channels
-        FCMHelper.createNotificationChannels(this)
-
-        // Initialize Timber
+        // Initialize Timber first (lightweight)
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
 
-        // Initialize TokenManager
+        // Initialize critical components synchronously
         tokenManager = TokenManager(applicationContext)
-
-        // Initialize RetrofitClient
         RetrofitClient.initialize(tokenManager)
-
-        // Initialize AuthRepository
         authRepository = AuthRepository(tokenManager)
 
-        Timber.d("AuthApplication initialized")
-        Timber.d("Firebase Analytics initialized")
+        // Initialize Firebase synchronously (required for app startup)
+        FirebaseApp.initializeApp(this)
+        firebaseAnalytics = FirebaseAnalytics.getInstance(this)
+        firebaseAnalytics.setAnalyticsCollectionEnabled(true)
 
-        // Log app open event
-        logEvent("app_started", null)
+        Timber.d("AuthApplication core initialized")
+
+        // Initialize non-critical Firebase features in background
+        Thread {
+            try {
+                initializeFCM()
+                FCMHelper.createNotificationChannels(this)
+
+                // Log app started event
+                logEvent("app_started", null)
+
+                Timber.d("Firebase Analytics and FCM initialized")
+            } catch (e: Exception) {
+                Timber.e(e, "Error initializing Firebase features")
+            }
+        }.start()
     }
 
     private fun initializeFCM() {
         FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
             if (!task.isSuccessful) {
-                Timber.w("Fetching FCM registration token failed", task.exception)
+                Timber.w(task.exception, "Fetching FCM registration token failed")
                 return@OnCompleteListener
             }
 
@@ -77,7 +91,7 @@ class AuthApplication : Application() {
             sharedPreferences.edit().putString("FCM_TOKEN", token).apply()
 
             // TODO: Send token to your backend server
-            // You can implement this later when you have a backend endpoint
+
         })
 
         // Subscribe to a topic (optional)

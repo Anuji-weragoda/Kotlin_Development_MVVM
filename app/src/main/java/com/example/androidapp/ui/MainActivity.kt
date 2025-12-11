@@ -59,23 +59,12 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // --- Initialize FlutterEngine ---
+        // --- Initialize FlutterEngine in background ---
         // Request notification permission for Android 13+
         requestNotificationPermission()
 
-        // Initialize FlutterEngine
-        flutterEngine = FlutterEngine(this)
-        flutterEngine.dartExecutor.executeDartEntrypoint(
-            DartExecutor.DartEntrypoint.createDefault()
-        )
-
-        // Setup ChannelManager
-        ChannelManager.setup(flutterEngine, this)
-        // --- Setup ChannelManager (no need to instantiate) ---
-        ChannelManager.setup(flutterEngine, this)
-
-        // --- Cache FlutterEngine ---
-        FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+        // Initialize FlutterEngine asynchronously to avoid blocking main thread
+        initializeFlutterEngine()
 
         // Log screen view
         AnalyticsHelper.logScreenView(firebaseAnalytics, "MainActivity")
@@ -86,6 +75,27 @@ class MainActivity : AppCompatActivity() {
 
         // Add test crash button for Firebase Crashlytics testing
         addTestCrashButton()
+    }
+
+    private fun initializeFlutterEngine() {
+        // Run Flutter engine initialization on a background thread
+        Thread {
+            try {
+                flutterEngine = FlutterEngine(this)
+                flutterEngine.dartExecutor.executeDartEntrypoint(
+                    DartExecutor.DartEntrypoint.createDefault()
+                )
+
+                // Post setup to main thread
+                runOnUiThread {
+                    ChannelManager.setup(flutterEngine, this)
+                    FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
+                    Timber.d("Flutter engine initialized successfully")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to initialize Flutter engine")
+            }
+        }.start()
     }
 
     private fun addTestCrashButton() {
@@ -152,7 +162,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Ensure we have the runtime permissions needed for Bluetooth & Wi‑Fi scanning.
         checkAndRequestRuntimePermissions()
     }
 
@@ -164,15 +173,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        // If this is our combined runtime request, also forward to ChannelManager just in case
-        if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
-            ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        }
+        // Forward to ChannelManager for Bluetooth/WiFi handlers
+        ChannelManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
-    // Build a compact set of runtime permissions we need and request any that are missing.
+
     private fun checkAndRequestRuntimePermissions() {
         val required = mutableListOf<String>()
 
@@ -200,7 +206,7 @@ class MainActivity : AppCompatActivity() {
                 required.add(Manifest.permission.NEARBY_WIFI_DEVICES)
             }
         }
-        // Always add location permissions - they are required for Wi-Fi scanning on ALL Android versions
+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             if (!required.contains(Manifest.permission.ACCESS_FINE_LOCATION)) required.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
