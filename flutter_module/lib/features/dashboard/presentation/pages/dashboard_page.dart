@@ -20,6 +20,13 @@ class _DashboardPageState extends State<DashboardPage> {
   String? userEmail;
   String? userId;
   String? token;
+  String? displayName;
+  String? fullName;
+  String? phoneNumber;
+  String? preferredLanguage;
+  bool? mfaEnabled;
+  bool? emailVerified;
+  String? role;
   bool isLoading = true;
   bool isSigningOut = false;
   String? errorMessage;
@@ -38,10 +45,17 @@ class _DashboardPageState extends State<DashboardPage> {
             userEmail = args['email'] as String?;
             userId = args['userId'] as String?;
             token = args['accessToken'] as String?;
+            displayName = args['displayName'] as String?;
+            fullName = args['fullName'] as String?;
+            phoneNumber = args['phoneNumber'] as String?;
+            preferredLanguage = args['preferredLanguage'] as String?;
+            mfaEnabled = args['mfaEnabled'] as bool?;
+            emailVerified = args['emailVerified'] as bool?;
+            role = args['role'] as String?;
             isLoading = false;
             errorMessage = null;
           });
-          debugPrint('Received user session: $userEmail');
+          debugPrint('Received user session: $userEmail, displayName: $displayName');
         }
       }
       return null;
@@ -49,6 +63,17 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   String _getDisplayName() {
+    // Use displayName from backend if available
+    if (displayName != null && displayName!.isNotEmpty) {
+      return displayName!;
+    }
+
+    // Fall back to fullName if available
+    if (fullName != null && fullName!.isNotEmpty) {
+      return fullName!;
+    }
+
+    // Fall back to email username
     if (userEmail == null) return 'Guest';
     final name = userEmail!.split('@')[0];
     return name
@@ -261,6 +286,13 @@ class _DashboardPageState extends State<DashboardPage> {
                               userEmail: userEmail,
                               userId: userId,
                               token: token,
+                              displayName: displayName,
+                              fullName: fullName,
+                              phoneNumber: phoneNumber,
+                              preferredLanguage: preferredLanguage,
+                              mfaEnabled: mfaEnabled,
+                              emailVerified: emailVerified,
+                              role: role,
                             ),
                           ),
                         );

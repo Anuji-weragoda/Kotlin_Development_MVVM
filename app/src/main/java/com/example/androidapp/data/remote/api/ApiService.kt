@@ -30,8 +30,9 @@ interface ApiService {
         @Body request: RefreshTokenRequest
     ): Response<AuthResponse>
 
-    @POST("api/v1/sessions/logout")
+    @POST("sessions/logout")
     suspend fun logout(): Response<Unit>
+
 
     @GET("health")
     suspend fun healthCheck(): Response<String>

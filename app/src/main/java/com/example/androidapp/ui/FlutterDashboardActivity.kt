@@ -49,11 +49,24 @@ class FlutterDashboardActivity : FlutterActivity() {
         // Get FCM token
         val fcmToken = (application as AuthApplication).getFCMToken()
 
-        // Send initial user session
-        val userSession = mutableMapOf(
+        // Get display name from email (extract from Intent if available, or derive from email)
+        val displayName = intent.getStringExtra("displayName") ?: email.split("@")[0]
+            .split(".")
+            .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+
+        // Build complete user session with all available data
+        val userSession = mutableMapOf<String, Any?>(
             "email" to email,
             "userId" to userId,
-            "accessToken" to token
+            "accessToken" to token,
+            "displayName" to displayName,
+            "fullName" to (intent.getStringExtra("fullName") ?: displayName),
+            "phoneNumber" to intent.getStringExtra("phoneNumber"),
+            "preferredLanguage" to (intent.getStringExtra("preferredLanguage") ?: "en"),
+            "mfaEnabled" to intent.getBooleanExtra("mfaEnabled", false),
+            "emailVerified" to intent.getBooleanExtra("emailVerified", true),
+            "phoneVerified" to intent.getBooleanExtra("phoneVerified", false),
+            "role" to (intent.getStringExtra("role") ?: "USER")
         )
 
         // Add FCM token if available
@@ -63,7 +76,7 @@ class FlutterDashboardActivity : FlutterActivity() {
         }
 
         channel.invokeMethod("updateUserSession", userSession)
-        Timber.d("User session sent to Flutter via MethodChannel")
+        Timber.d("Complete user session sent to Flutter - Email: $email, DisplayName: $displayName")
 
         // Set up method call handler for Flutter -> Native calls
         channel.setMethodCallHandler { call, result ->
