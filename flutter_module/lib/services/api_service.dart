@@ -161,9 +161,27 @@ class ApiService {
   }
 
   static Future<void> logoutUser() async {
-    // Clear the stored auth token
-    _authToken = null;
-    print('User logged out (token cleared)');
-    // Add any additional cleanup logic if needed
+    try {
+      // Call backend logout endpoint
+      if (_authToken != null) {
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/v1/sessions/logout'),
+          headers: _authHeaders(),
+        ).timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200 || response.statusCode == 302) {
+          print('Logout successful on backend');
+        } else {
+          print('Backend logout returned: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      print('Error calling backend logout: $e');
+      // Continue with local cleanup even if backend call fails
+    } finally {
+      // Clear the stored auth token regardless of backend response
+      _authToken = null;
+      print('User logged out (token cleared)');
+    }
   }
 }

@@ -87,4 +87,30 @@ class AuthRepository(private val tokenManager: TokenManager) {
             false
         }
     }
+
+    // Logout
+    suspend fun logout(): Flow<Resource<Unit>> = flow {
+        try {
+            emit(Resource.Loading)
+
+            val response = apiService.logout()
+
+            if (response.isSuccessful || response.code() == 302) {
+                // Clear local tokens
+                tokenManager.clearTokens()
+                emit(Resource.Success(Unit))
+                Timber.d("Logout successful")
+            } else {
+                // Clear tokens even if backend fails
+                tokenManager.clearTokens()
+                emit(Resource.Success(Unit))
+                Timber.w("Logout backend call failed with code: ${response.code()}, but cleared local tokens")
+            }
+        } catch (e: Exception) {
+            // Clear tokens even if network fails
+            tokenManager.clearTokens()
+            emit(Resource.Success(Unit))
+            Timber.e(e, "Logout exception, but cleared local tokens")
+        }
+    }
 }

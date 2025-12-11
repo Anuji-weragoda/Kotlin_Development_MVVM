@@ -4,7 +4,8 @@ import '../widgets/dashboard_header.dart';
 import '../widgets/action_card.dart';
 import '../widgets/stat_card.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../payment/presentation/pages/payment_page.dart'; // <-- import payment page
+import '../../../payment/presentation/pages/payment_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -58,14 +59,25 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _handleSignOut() async {
     setState(() => isSigningOut = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) setState(() => isSigningOut = false);
 
-    // TODO: real sign out logic here
-    // Navigator.of(context).pushReplacementNamed('/login');
-
-    if (mounted) {
-      setState(() => isSigningOut = false);
+    try {
+      // Call Android native logout method
+      await platform.invokeMethod('logout');
+      debugPrint('Logout successful');
+    } catch (e) {
+      debugPrint('Error during logout: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isSigningOut = false);
+      }
     }
   }
 
@@ -241,7 +253,18 @@ class _DashboardPageState extends State<DashboardPage> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
                       ),
-                      onTap: () => debugPrint('View Profile tapped'),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfilePage(
+                              userEmail: userEmail,
+                              userId: userId,
+                              token: token,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     // **New Payment Action**

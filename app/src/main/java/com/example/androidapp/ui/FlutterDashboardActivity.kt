@@ -2,20 +2,17 @@ package com.example.androidapp.ui
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.example.androidapp.AuthApplication
 import com.example.androidapp.ChannelManager
-import com.example.androidapp.ui.auth.login.LoginFragment
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class FlutterDashboardActivity : FlutterActivity() {
 
-    private val TAG = "FlutterDashboard"
     private val ENGINE_ID = "main"
     private val CHANNEL_NAME = "com.example.flutter/dashboard"
 
@@ -23,7 +20,6 @@ class FlutterDashboardActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
 
         Timber.d("FlutterDashboardActivity onCreate called")
-        Log.d(TAG, "FlutterDashboardActivity onCreate called")
 
         // Set this activity as the current activity for payment launches
         ChannelManager.setCurrentActivity(this)
@@ -37,7 +33,6 @@ class FlutterDashboardActivity : FlutterActivity() {
             // Save session in your ChannelManager
             ChannelManager.setUserSession(email, userId, token)
             Timber.d("User session set in ChannelManager")
-            Log.d(TAG, "User session stored in ChannelManager")
 
             // Push session to Flutter
             getFlutterEngine()?.let { engine ->
@@ -45,7 +40,6 @@ class FlutterDashboardActivity : FlutterActivity() {
             }
         } else {
             Timber.w("Missing user data in intent extras")
-            Log.w(TAG, "Missing user data in intent extras")
         }
     }
 
@@ -70,7 +64,6 @@ class FlutterDashboardActivity : FlutterActivity() {
 
         channel.invokeMethod("updateUserSession", userSession)
         Timber.d("User session sent to Flutter via MethodChannel")
-        Log.d(TAG, "User session sent to Flutter via MethodChannel")
 
         // Set up method call handler for Flutter -> Native calls
         channel.setMethodCallHandler { call, result ->
@@ -89,11 +82,24 @@ class FlutterDashboardActivity : FlutterActivity() {
             try {
                 Timber.d("Logout requested from Flutter")
 
-                // Get TokenManager from Application
+                // Get TokenManager and AuthRepository from Application
                 val tokenManager = (application as AuthApplication).tokenManager
+                val authRepository = com.example.androidapp.data.repository.AuthRepository(tokenManager)
 
-                // Clear all tokens and user data
-                tokenManager.clearTokens()
+                // Call backend logout and clear tokens
+                authRepository.logout().collect { resource ->
+                    when (resource) {
+                        is com.example.androidapp.data.repository.Resource.Success -> {
+                            Timber.d("Logout completed successfully")
+                        }
+                        is com.example.androidapp.data.repository.Resource.Error -> {
+                            Timber.w("Logout warning: ${resource.message}")
+                        }
+                        is com.example.androidapp.data.repository.Resource.Loading -> {
+                            Timber.d("Logging out...")
+                        }
+                    }
+                }
 
                 // Clear ChannelManager session
                 ChannelManager.clearUserSession()
@@ -101,7 +107,7 @@ class FlutterDashboardActivity : FlutterActivity() {
                 Timber.d("User logged out successfully, navigating to MainActivity")
 
                 // Navigate back to MainActivity (which contains LoginFragment)
-                val intent = Intent(this@FlutterDashboardActivity, com.example.androidapp.ui.MainActivity::class.java).apply {
+                val intent = Intent(this@FlutterDashboardActivity, MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 }
                 startActivity(intent)
