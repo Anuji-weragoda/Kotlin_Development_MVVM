@@ -78,24 +78,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeFlutterEngine() {
-        // Run Flutter engine initialization on a background thread
-        Thread {
-            try {
-                flutterEngine = FlutterEngine(this)
-                flutterEngine.dartExecutor.executeDartEntrypoint(
-                    DartExecutor.DartEntrypoint.createDefault()
-                )
+        // Initialize Flutter engine on main thread to ensure it's ready before navigating
+        try {
+            Timber.d("Initializing Flutter engine...")
+            flutterEngine = FlutterEngine(this)
+            flutterEngine.dartExecutor.executeDartEntrypoint(
+                DartExecutor.DartEntrypoint.createDefault()
+            )
 
-                // Post setup to main thread
-                runOnUiThread {
-                    ChannelManager.setup(flutterEngine, this)
-                    FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
-                    Timber.d("Flutter engine initialized successfully")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to initialize Flutter engine")
-            }
-        }.start()
+            ChannelManager.setup(flutterEngine, this)
+            Timber.d("Flutter engine initialized and cached successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize Flutter engine")
+        }
     }
 
     private fun addTestCrashButton() {

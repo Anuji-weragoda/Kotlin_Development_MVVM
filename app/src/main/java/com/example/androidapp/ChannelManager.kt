@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import timber.log.Timber
@@ -32,6 +33,7 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
     private const val PAYMENT_REQUEST_CODE = 1001
     private const val BLUETOOTH_CHANNEL = "com.example.androidapp/bluetooth"
     private const val WIFI_CHANNEL = "com.example.androidapp/wifi"
+    private const val CACHED_ENGINE_ID = "main"
 
 
     fun setCurrentActivity(activity: Activity?) {
@@ -41,6 +43,15 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
 
     fun setup(engine: FlutterEngine, context: Context) {
         flutterEngine = engine
+
+        // Register engine in cache so FlutterActivity that expects cachedEngineId "main" can find it
+        try {
+            FlutterEngineCache.getInstance().put(CACHED_ENGINE_ID, engine)
+            Timber.d("FlutterEngine cached with id='$CACHED_ENGINE_ID'")
+        } catch (t: Throwable) {
+            Timber.w(t, "Failed to put FlutterEngine into FlutterEngineCache")
+        }
+
         Timber.d("ChannelManager.setup called; engineHash=%s, context=%s", engine.hashCode(), context.javaClass.simpleName)
         val appContext = context.applicationContext // Safe context
 
@@ -197,6 +208,15 @@ object ChannelManager : PluginRegistry.ActivityResultListener {
         wifiHandler?.dispose()
         bluetoothHandler = null
         wifiHandler = null
+
+        // Remove engine from cache so FlutterActivity won't find a stale engine
+        try {
+            FlutterEngineCache.getInstance().remove(CACHED_ENGINE_ID)
+            Timber.d("FlutterEngine removed from cache id='$CACHED_ENGINE_ID'")
+        } catch (t: Throwable) {
+            Timber.w(t, "Failed to remove FlutterEngine from FlutterEngineCache")
+        }
+
         flutterEngine = null
     }
 }
