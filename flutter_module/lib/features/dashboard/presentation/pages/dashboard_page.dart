@@ -176,37 +176,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 onSignOut: _handleSignOut,
               ),
 
-              // Stats Cards (unchanged)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: StatCard(
-                        icon: Icons.verified_user_rounded,
-                        label: 'Account Status',
-                        value: 'Active',
-                        color: const Color(0xFF10B981),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF10B981), Color(0xFF059669)],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: StatCard(
-                        icon: Icons.access_time_rounded,
-                        label: 'Member Since',
-                        value: '',
-                        color: const Color(0xFF6366F1),
-                        gradient: AppColors.primaryGradient,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               // Connectivity Section
               const Padding(
