@@ -11,7 +11,7 @@ object SslConfig {
     private const val TAG = "SslConfig"
 
 
-    private const val ENABLE_SSL_PINNING = true
+    private const val ENABLE_SSL_PINNING =true
 
     fun createSecureOkHttpClient(): OkHttpClient {
         val builder = OkHttpClient.Builder()
